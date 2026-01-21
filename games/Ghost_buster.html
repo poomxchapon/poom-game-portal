@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>👻 Ghost Buster - Multiplayer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Kanit:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --ghost-lv1: #3742fa;
+            --ghost-lv2: #2ed573;
+            --ghost-lv3: #ffd93d;
+            --ghost-lv4: #ff4757;
+            --player1: #00d4ff;
+            --player2: #ff6b9d;
+            --player3: #7bed9f;
+            --player4: #eccc68;
+            --bg-dark: #0a0a1a;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a1a 100%);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Floating Ghosts Background */
+        .floating-ghosts {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .floating-ghost {
+            position: absolute;
+            font-size: 1.5rem;
+            opacity: 0.08;
+            animation: floatGhost 20s linear infinite;
+        }
+
+        @keyframes floatGhost {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.08; }
+            90% { opacity: 0.08; }
+            100% { transform: translateY(-50px) rotate(360deg); opacity: 0; }
+        }
+
+        /* Main Container - Full viewport */
+        .game-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        /* Setup Screen */
+        .setup-screen {
+            background: linear-gradient(145deg, rgba(20, 20, 40, 0.95), rgba(30, 30, 60, 0.95));
+            border: 2px solid rgba(167, 94, 234, 0.5);
+            border-radius: 20px;
+            padding: 25px 40px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(167, 94, 234, 0.3);
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .setup-screen.hidden { display: none; }
+
+        .setup-title {
+            font-family: 'Creepster', cursive;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 0 20px #a55eea;
+        }
+
+        .setup-section {
+            margin-bottom: 18px;
+        }
+
+        .setup-section-title {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: #a55eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .selection-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .select-btn {
+            min-width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: linear-gradient(145deg, #1a1a3a, #0d0d20);
+            color: white;
+            font-size: 1.3rem;
+            font-family: 'Kanit', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .select-btn span { font-size: 0.65rem; color: #888; }
+
+        .select-btn:hover {
+            transform: scale(1.05);
+            border-color: #a55eea;
+        }
+
+        .select-btn.selected {
+            background: linear-gradient(145deg, #a55eea, #7b3cb8);
+            border-color: white;
+            box-shadow: 0 0 20px #a55eea;
+        }
+
+        .select-btn.selected span { color: rgba(255,255,255,0.8); }
+
+        .ghost-levels-preview {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-top: 10px;
+        }
+
+        .ghost-levels-preview h4 {
+            color: #888;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .ghost-levels-list {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .ghost-level-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid transparent;
+        }
+
+        .ghost-level-item .ghost-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            font-size: 0.6rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ghost-level-item.lv1 .ghost-dot { background: var(--ghost-lv1); }
+        .ghost-level-item.lv2 .ghost-dot { background: var(--ghost-lv2); }
+        .ghost-level-item.lv3 .ghost-dot { background: var(--ghost-lv3); }
+        .ghost-level-item.lv4 .ghost-dot { background: var(--ghost-lv4); }
+        .ghost-level-item.disabled { opacity: 0.3; }
+        .ghost-level-item:not(.disabled).lv1 { border-color: var(--ghost-lv1); }
+        .ghost-level-item:not(.disabled).lv2 { border-color: var(--ghost-lv2); }
+        .ghost-level-item:not(.disabled).lv3 { border-color: var(--ghost-lv3); }
+        .ghost-level-item:not(.disabled).lv4 { border-color: var(--ghost-lv4); }
+
+        .controls-preview {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 10px 15px;
+        }
+
+        .controls-preview h4 {
+            margin-bottom: 8px;
+            color: #888;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+
+        .control-item.disabled { opacity: 0.3; }
+
+        .player-color-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .control-keys {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+        }
+
+        /* Game Screen - Fit viewport */
+        .game-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100vh;
+            padding: 8px;
+        }
+
+        .game-screen.active { display: flex; }
+
+        .game-header {
+            text-align: center;
+        }
+
+        .game-title {
+            font-family: 'Creepster', cursive;
+            font-size: 2rem;
+            color: #fff;
+            text-shadow: 0 0 15px #a55eea;
+            letter-spacing: 3px;
+        }
+
+        .command-display {
+            background: linear-gradient(145deg, rgba(20, 20, 40, 0.9), rgba(30, 30, 60, 0.9));
+            border: 2px solid rgba(167, 94, 234, 0.5);
+            border-radius: 15px;
+            padding: 12px 30px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(167, 94, 234, 0.3);
+        }
+
+        .command-display.changing {
+            animation: commandChange 0.5s ease;
+        }
+
+        @keyframes commandChange {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); border-color: #ffd93d; box-shadow: 0 0 40px #ffd93d; }
+            100% { transform: scale(1); }
+        }
+
+        .command-label {
+            font-size: 0.7rem;
+            color: #888;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .command-text {
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .ghost-color-indicator {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            animation: pulse 1s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        .level-badge {
+            background: linear-gradient(145deg, #2d2d5a, #1a1a3a);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .level-badge.lv1 { border-color: var(--ghost-lv1); }
+        .level-badge.lv2 { border-color: var(--ghost-lv2); }
+        .level-badge.lv3 { border-color: var(--ghost-lv3); }
+        .level-badge.lv4 { border-color: var(--ghost-lv4); }
+
+        .player-icons-needed { display: flex; gap: 2px; }
+        .player-icons-needed span { font-size: 0.85rem; }
+
+        .stats-bar {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .stat-item {
+            background: linear-gradient(145deg, rgba(30, 30, 60, 0.8), rgba(20, 20, 40, 0.8));
+            padding: 8px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .stat-value.time { color: #ffa502; font-family: 'Courier New', monospace; }
+        .stat-value.time.warning { color: #ff4757; animation: timeWarning 0.5s ease-in-out infinite; }
+        .stat-value.score { color: #2ed573; }
+
+        @keyframes timeWarning {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Floor Grid - Dynamic sizing */
+        .floor-container {
+            background: linear-gradient(145deg, #0d0d20, #151530);
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .floor-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 4px;
+        }
+
+        .floor-cell {
+            width: clamp(40px, 6vw, 60px);
+            height: clamp(40px, 6vw, 60px);
+            background: linear-gradient(145deg, #1a1a3a, #0d0d20);
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            transition: all 0.15s ease;
+        }
+
+        /* Ghost Styles */
+        .floor-cell.ghost { animation: ghostAppear 0.3s ease-out; }
+
+        .floor-cell.ghost-lv1 {
+            background: radial-gradient(circle at center, var(--ghost-lv1) 0%, rgba(55, 66, 250, 0.3) 50%, transparent 70%);
+            box-shadow: 0 0 20px var(--ghost-lv1);
+            border-color: var(--ghost-lv1);
+        }
+
+        .floor-cell.ghost-lv2 {
+            background: radial-gradient(circle at center, var(--ghost-lv2) 0%, rgba(46, 213, 115, 0.3) 50%, transparent 70%);
+            box-shadow: 0 0 20px var(--ghost-lv2);
+            border-color: var(--ghost-lv2);
+        }
+
+        .floor-cell.ghost-lv3 {
+            background: radial-gradient(circle at center, var(--ghost-lv3) 0%, rgba(255, 217, 61, 0.3) 50%, transparent 70%);
+            box-shadow: 0 0 20px var(--ghost-lv3);
+            border-color: var(--ghost-lv3);
+        }
+
+        .floor-cell.ghost-lv4 {
+            background: radial-gradient(circle at center, var(--ghost-lv4) 0%, rgba(255, 71, 87, 0.3) 50%, transparent 70%);
+            box-shadow: 0 0 20px var(--ghost-lv4);
+            border-color: var(--ghost-lv4);
+        }
+
+        .floor-cell.captured { animation: captured 0.5s ease-out forwards; }
+
+        @keyframes captured {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.3); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        .floor-cell.held { animation: holding 0.5s ease-in-out infinite; }
+
+        @keyframes holding {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        @keyframes ghostAppear {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .ghost-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(1.2rem, 4vw, 1.6rem);
+            animation: ghostFloat 1s ease-in-out infinite;
+            z-index: 5;
+        }
+
+        @keyframes ghostFloat {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+            50% { transform: translate(-50%, -50%) translateY(-3px); }
+        }
+
+        .ghost-level-indicator {
+            position: absolute;
+            bottom: 1px;
+            right: 1px;
+            font-size: 0.5rem;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1px 4px;
+            border-radius: 6px;
+            z-index: 10;
+        }
+
+        /* Player Icons */
+        .players-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .player-icon {
+            font-size: clamp(1rem, 3vw, 1.4rem);
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.8));
+            animation: playerBounce 0.5s ease-in-out infinite;
+        }
+
+        .player-icon.p1 { filter: drop-shadow(0 0 6px var(--player1)); }
+        .player-icon.p2 { filter: drop-shadow(0 0 6px var(--player2)); }
+        .player-icon.p3 { filter: drop-shadow(0 0 6px var(--player3)); }
+        .player-icon.p4 { filter: drop-shadow(0 0 6px var(--player4)); }
+
+        @keyframes playerBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-2px); }
+        }
+
+        .players-container.players-2 .player-icon,
+        .players-container.players-3 .player-icon,
+        .players-container.players-4 .player-icon { 
+            font-size: clamp(0.8rem, 2.5vw, 1.1rem); 
+            margin: 1px; 
+        }
+
+        .floor-cell.has-players {
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .floor-cell.player-capturing {
+            animation: playerCapturing 0.3s ease-in-out infinite;
+        }
+
+        @keyframes playerCapturing {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.4); }
+        }
+
+        /* Bottom Controls */
+        .bottom-bar {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .controls-legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 10px;
+        }
+
+        .legend-player {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.7rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .legend-keys {
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.6rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 600;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: linear-gradient(145deg, #2ed573, #1fa85a);
+            color: white;
+            box-shadow: 0 3px 15px rgba(46, 213, 115, 0.4);
+        }
+
+        .btn-start:hover { transform: translateY(-2px); }
+
+        .btn-reset {
+            background: linear-gradient(145deg, #444, #333);
+            color: white;
+        }
+
+        .btn-back {
+            background: linear-gradient(145deg, #a55eea, #7b3cb8);
+            color: white;
+        }
+
+        /* Capture Progress */
+        .capture-progress {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 40, 0.95);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(167, 94, 234, 0.5);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+            font-size: 0.85rem;
+        }
+
+        .capture-progress.show {
+            display: flex;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(30px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        .capture-progress-bar {
+            width: 100px;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .capture-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #a55eea, #2ed573);
+            border-radius: 6px;
+            transition: width 0.2s ease;
+        }
+
+        /* New Command Alert */
+        .new-command-alert {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 217, 61, 0.95);
+            color: #1a1a3a;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            z-index: 500;
+            display: none;
+            box-shadow: 0 0 40px #ffd93d;
+        }
+
+        .new-command-alert.show {
+            display: block;
+            animation: alertPop 0.5s ease;
+        }
+
+        @keyframes alertPop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: linear-gradient(145deg, #1a1a3a, #0d0d20);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid rgba(167, 94, 234, 0.5);
+            box-shadow: 0 0 60px rgba(167, 94, 234, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-family: 'Creepster', cursive;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .modal-title.end { color: #ffa502; text-shadow: 0 0 20px #ffa502; }
+
+        .modal-score {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+
+        .modal-score span {
+            color: #ffa502;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .modal-buttons .btn {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-height: 700px) {
+            .game-title { font-size: 1.5rem; }
+            .floor-cell { width: clamp(35px, 5vw, 50px); height: clamp(35px, 5vw, 50px); }
+            .ghost-icon { font-size: 1rem; }
+            .command-display { padding: 8px 20px; }
+            .command-text { font-size: 1rem; }
+            .stat-value { font-size: 1.2rem; }
+        }
+
+        @media (max-width: 700px) {
+            .floor-cell { width: clamp(30px, 8vw, 45px); height: clamp(30px, 8vw, 45px); }
+            .controls-legend { padding: 5px 10px; gap: 8px; }
+            .legend-player { font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-ghosts" id="floatingGhosts"></div>
+
+    <div class="game-container">
+        <!-- Setup Screen -->
+        <div class="setup-screen" id="setupScreen">
+            <div class="setup-title">👻 Ghost Buster</div>
+            
+            <div class="setup-section">
+                <div class="setup-section-title">👥 จำนวนผู้เล่น</div>
+                <div class="selection-group">
+                    <button class="select-btn player-btn" data-players="1" onclick="selectPlayers(1)">1<span>คน</span></button>
+                    <button class="select-btn player-btn" data-players="2" onclick="selectPlayers(2)">2<span>คน</span></button>
+                    <button class="select-btn player-btn" data-players="3" onclick="selectPlayers(3)">3<span>คน</span></button>
+                    <button class="select-btn player-btn" data-players="4" onclick="selectPlayers(4)">4<span>คน</span></button>
+                </div>
+            </div>
+
+            <div class="setup-section">
+                <div class="setup-section-title">⏱️ เวลาในการเล่น</div>
+                <div class="selection-group">
+                    <button class="select-btn time-btn" data-time="60" onclick="selectTime(60)">1<span>นาที</span></button>
+                    <button class="select-btn time-btn" data-time="120" onclick="selectTime(120)">2<span>นาที</span></button>
+                    <button class="select-btn time-btn" data-time="180" onclick="selectTime(180)">3<span>นาที</span></button>
+                    <button class="select-btn time-btn" data-time="300" onclick="selectTime(300)">5<span>นาที</span></button>
+                </div>
+            </div>
+
+            <div class="setup-section">
+                <div class="controls-preview">
+                    <h4>🎮 ปุ่มควบคุม</h4>
+                    <div class="controls-grid" id="controlsPreview">
+                        <div class="control-item" id="ctrl1"><div class="player-color-dot" style="background: var(--player1);"></div><span>P1:</span><span class="control-keys">W A S D</span></div>
+                        <div class="control-item" id="ctrl2"><div class="player-color-dot" style="background: var(--player2);"></div><span>P2:</span><span class="control-keys">↑ ← ↓ →</span></div>
+                        <div class="control-item disabled" id="ctrl3"><div class="player-color-dot" style="background: var(--player3);"></div><span>P3:</span><span class="control-keys">I J K L</span></div>
+                        <div class="control-item disabled" id="ctrl4"><div class="player-color-dot" style="background: var(--player4);"></div><span>P4:</span><span class="control-keys">8 4 5 6</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-start" onclick="startGame()">🎮 เริ่มเกม</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div class="game-screen" id="gameScreen">
+            <div class="game-header">
+                <div class="game-title">👻 Ghost Buster</div>
+            </div>
+
+            <div class="command-display" id="commandDisplay">
+                <div class="command-label">🎯 คำสั่ง</div>
+                <div class="command-text" id="commandText"><span>เตรียมพร้อม!</span></div>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-label">⏱️ เวลา</div>
+                    <div class="stat-value time" id="timeDisplay">60</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">👻 คะแนน</div>
+                    <div class="stat-value score" id="scoreDisplay">0</div>
+                </div>
+            </div>
+
+            <div class="floor-container">
+                <div class="floor-grid" id="floorGrid"></div>
+            </div>
+
+            <div class="bottom-bar">
+                <div class="controls-legend" id="controlsLegend"></div>
+                <div class="controls">
+                    <button class="btn btn-reset" onclick="resetGame()">🔄 ใหม่</button>
+                    <button class="btn btn-back" onclick="backToSetup()">◀ กลับ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="capture-progress" id="captureProgress">
+        <span>🔒 จับวิญญาณ...</span>
+        <div class="capture-progress-bar">
+            <div class="capture-progress-fill" id="captureProgressFill"></div>
+        </div>
+        <span id="captureCount">0/0</span>
+    </div>
+
+    <div class="new-command-alert" id="newCommandAlert">🔄 คำสั่งใหม่!</div>
+
+    <div class="modal" id="endModal">
+        <div class="modal-content">
+            <div class="modal-title end">⏱️ หมดเวลา!</div>
+            <div class="modal-score">ทีมจับผีได้ <span id="finalScoreEnd">0</span> คะแนน</div>
+            <div class="modal-buttons">
+                <button class="btn btn-start" onclick="resetGame()">🔄 เล่นอีก</button>
+                <button class="btn btn-back" onclick="backToSetup()">◀ กลับ</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            gridWidth: 10,
+            gridHeight: 6,
+            ghostMoveInterval: 1800,
+            ghostSpawnInterval: 1500,  // 1.5 วินาที
+            maxGhosts: 10,
+            commandChangeMinInterval: 8000,
+            commandChangeMaxInterval: 15000,
+            commandChangeChance: 0.3
+        };
+
+        const GHOST_CONFIG = {
+            1: { color: 'lv1', colorName: 'น้ำเงิน', cssVar: '--ghost-lv1', playersNeeded: 1 },
+            2: { color: 'lv2', colorName: 'เขียว', cssVar: '--ghost-lv2', playersNeeded: 2 },
+            3: { color: 'lv3', colorName: 'เหลือง', cssVar: '--ghost-lv3', playersNeeded: 3 },
+            4: { color: 'lv4', colorName: 'แดง', cssVar: '--ghost-lv4', playersNeeded: 4 }
+        };
+
+        const PLAYER_CONTROLS = {
+            1: { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', label: 'WASD' },
+            2: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', label: '↑←↓→' },
+            3: { up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL', label: 'IJKL' },
+            4: { up: 'Numpad8', down: 'Numpad5', left: 'Numpad4', right: 'Numpad6', label: '8456' }
+        };
+
+        const PLAYER_ICONS = ['🧑', '👩', '🧒', '👦'];
+        const PLAYER_COLORS = ['#00d4ff', '#ff6b9d', '#7bed9f', '#eccc68'];
+
+        let gameState = {
+            isPlaying: false,
+            playerCount: 1,
+            maxGhostLevel: 1,
+            gameTime: 60,
+            score: 0,
+            timeLeft: 60,
+            currentCommand: null,
+            ghosts: [],
+            players: [],
+            timers: {},
+            lastCommandChange: 0
+        };
+
+        let ghostSpawnCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+        function selectPlayers(count) {
+            gameState.playerCount = count;
+            gameState.maxGhostLevel = count;
+            
+            document.querySelectorAll('.player-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.players) === count);
+            });
+
+            // Update controls preview
+            for (let i = 1; i <= 4; i++) {
+                const method = i <= count ? 'remove' : 'add';
+                document.getElementById(`ctrl${i}`).classList[method]('disabled');
+            }
+        }
+
+        function selectTime(seconds) {
+            gameState.gameTime = seconds;
+            gameState.timeLeft = seconds;
+            
+            document.querySelectorAll('.time-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.time) === seconds);
+            });
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : secs;
+        }
+
+        function initGrid() {
+            const grid = document.getElementById('floorGrid');
+            grid.innerHTML = '';
+            for (let y = 0; y < CONFIG.gridHeight; y++) {
+                for (let x = 0; x < CONFIG.gridWidth; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'floor-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.dataset.index = y * CONFIG.gridWidth + x;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function initPlayers() {
+            gameState.players = [];
+            const startPositions = [{ x: 4, y: 2 }, { x: 5, y: 3 }, { x: 3, y: 3 }, { x: 6, y: 2 }];
+
+            for (let i = 0; i < gameState.playerCount; i++) {
+                gameState.players.push({
+                    id: i + 1,
+                    x: startPositions[i].x,
+                    y: startPositions[i].y,
+                    icon: PLAYER_ICONS[i],
+                    color: PLAYER_COLORS[i]
+                });
+            }
+
+            updateControlsLegend();
+        }
+
+        function updateControlsLegend() {
+            document.getElementById('controlsLegend').innerHTML = gameState.players.map(p => `
+                <div class="legend-player">
+                    <div class="legend-dot" style="background: ${p.color};"></div>
+                    <span>P${p.id}:</span>
+                    <span class="legend-keys">${PLAYER_CONTROLS[p.id].label}</span>
+                </div>
+            `).join('');
+        }
+
+        function getRandomPosition() {
+            for (let i = 0; i < 50; i++) {
+                const pos = { x: Math.floor(Math.random() * CONFIG.gridWidth), y: Math.floor(Math.random() * CONFIG.gridHeight) };
+                if (!gameState.players.some(p => p.x === pos.x && p.y === pos.y)) return pos;
+            }
+            return { x: Math.floor(Math.random() * CONFIG.gridWidth), y: Math.floor(Math.random() * CONFIG.gridHeight) };
+        }
+
+        function getBalancedGhostLevel() {
+            const availableLevels = [];
+            for (let i = 1; i <= gameState.maxGhostLevel; i++) {
+                availableLevels.push({ level: i, count: ghostSpawnCounts[i] });
+            }
+            const minCount = Math.min(...availableLevels.map(l => l.count));
+            const candidates = availableLevels.filter(l => l.count === minCount);
+            return candidates[Math.floor(Math.random() * candidates.length)].level;
+        }
+
+        function spawnGhost() {
+            if (!gameState.isPlaying || gameState.ghosts.length >= CONFIG.maxGhosts) return;
+
+            const level = getBalancedGhostLevel();
+            const config = GHOST_CONFIG[level];
+            const pos = getRandomPosition();
+            
+            if (gameState.ghosts.some(g => g.x === pos.x && g.y === pos.y)) return;
+
+            ghostSpawnCounts[level]++;
+            gameState.ghosts.push({
+                id: Date.now() + Math.random(),
+                level, color: config.color, colorName: config.colorName,
+                playersNeeded: config.playersNeeded,
+                x: pos.x, y: pos.y, playersCapturing: new Set()
+            });
+            render();
+        }
+
+        function moveGhosts() {
+            if (!gameState.isPlaying) return;
+
+            gameState.ghosts.forEach(ghost => {
+                if (ghost.playersCapturing.size > 0) return;
+                const dx = Math.floor(Math.random() * 3) - 1;
+                const dy = Math.floor(Math.random() * 3) - 1;
+                const newX = Math.max(0, Math.min(CONFIG.gridWidth - 1, ghost.x + dx));
+                const newY = Math.max(0, Math.min(CONFIG.gridHeight - 1, ghost.y + dy));
+                if (!gameState.ghosts.some(g => g.id !== ghost.id && g.x === newX && g.y === newY)) {
+                    ghost.x = newX;
+                    ghost.y = newY;
+                }
+            });
+            render();
+            checkCaptures();
+        }
+
+        function movePlayer(playerId, direction) {
+            if (!gameState.isPlaying) return;
+            const player = gameState.players.find(p => p.id === playerId);
+            if (!player) return;
+
+            switch (direction) {
+                case 'up': player.y = Math.max(0, player.y - 1); break;
+                case 'down': player.y = Math.min(CONFIG.gridHeight - 1, player.y + 1); break;
+                case 'left': player.x = Math.max(0, player.x - 1); break;
+                case 'right': player.x = Math.min(CONFIG.gridWidth - 1, player.x + 1); break;
+            }
+            render();
+            checkCaptures();
+        }
+
+        function checkCaptures() {
+            if (!gameState.currentCommand) return;
+
+            gameState.ghosts.forEach(ghost => {
+                const playersOnGhost = new Set();
+                gameState.players.forEach(player => {
+                    if (player.x === ghost.x && player.y === ghost.y) playersOnGhost.add(player.id);
+                });
+
+                if (ghost.level === gameState.currentCommand.level) {
+                    ghost.playersCapturing = playersOnGhost;
+                    if (playersOnGhost.size >= ghost.playersNeeded) captureGhost(ghost, Array.from(playersOnGhost));
+                } else {
+                    ghost.playersCapturing = new Set();
+                }
+            });
+            updateCaptureProgress();
+        }
+
+        function captureGhost(ghost, capturingPlayerIds) {
+            const cell = document.querySelector(`[data-index="${ghost.y * CONFIG.gridWidth + ghost.x}"]`);
+            if (cell) cell.classList.add('captured');
+
+            setTimeout(() => {
+                gameState.ghosts = gameState.ghosts.filter(g => g.id !== ghost.id);
+                render();
+            }, 500);
+
+            // Add points to team score
+            gameState.score += ghost.level;
+            document.getElementById('scoreDisplay').textContent = gameState.score;
+            
+            // Always generate a DIFFERENT command after capture
+            generateNewDifferentCommand();
+        }
+
+        // Generate a command with different level than current
+        function generateNewDifferentCommand() {
+            const currentLevel = gameState.currentCommand?.level;
+            let availableLevels = [];
+            
+            for (let i = 1; i <= gameState.maxGhostLevel; i++) {
+                if (i !== currentLevel) availableLevels.push(i);
+            }
+            
+            // If only one level available (1 player), just use it
+            if (availableLevels.length === 0) availableLevels = [1];
+            
+            const newLevel = availableLevels[Math.floor(Math.random() * availableLevels.length)];
+            const config = GHOST_CONFIG[newLevel];
+            
+            gameState.currentCommand = { level: newLevel, color: config.color, colorName: config.colorName, playersNeeded: config.playersNeeded };
+            gameState.lastCommandChange = Date.now();
+
+            let playerIcons = '';
+            for (let i = 0; i < config.playersNeeded; i++) playerIcons += '<span>👤</span>';
+            
+            document.getElementById('commandText').innerHTML = `
+                <div class="ghost-color-indicator" style="background: var(${config.cssVar}); box-shadow: 0 0 15px var(${config.cssVar});">👻</div>
+                <span>จับผี${config.colorName}</span>
+                <div class="level-badge lv${newLevel}">
+                    <div class="player-icons-needed">${playerIcons}</div>
+                    <span>${config.playersNeeded}คน</span>
+                </div>
+            `;
+
+            // Show change animation
+            document.getElementById('commandDisplay').classList.add('changing');
+            setTimeout(() => document.getElementById('commandDisplay').classList.remove('changing'), 500);
+        }
+
+        function updateCaptureProgress() {
+            const progress = document.getElementById('captureProgress');
+            const ghost = gameState.ghosts.find(g => 
+                g.playersCapturing.size > 0 && g.playersCapturing.size < g.playersNeeded && 
+                g.level === gameState.currentCommand?.level
+            );
+
+            if (ghost) {
+                progress.classList.add('show');
+                document.getElementById('captureProgressFill').style.width = `${(ghost.playersCapturing.size / ghost.playersNeeded) * 100}%`;
+                document.getElementById('captureCount').textContent = `${ghost.playersCapturing.size}/${ghost.playersNeeded}`;
+            } else {
+                progress.classList.remove('show');
+            }
+        }
+
+        function generateCommand(showAlert = false) {
+            const level = Math.floor(Math.random() * gameState.maxGhostLevel) + 1;
+            const config = GHOST_CONFIG[level];
+            
+            gameState.currentCommand = { level, color: config.color, colorName: config.colorName, playersNeeded: config.playersNeeded };
+            gameState.lastCommandChange = Date.now();
+
+            let playerIcons = '';
+            for (let i = 0; i < config.playersNeeded; i++) playerIcons += '<span>👤</span>';
+            
+            document.getElementById('commandText').innerHTML = `
+                <div class="ghost-color-indicator" style="background: var(${config.cssVar}); box-shadow: 0 0 15px var(${config.cssVar});">👻</div>
+                <span>จับผี${config.colorName}</span>
+                <div class="level-badge lv${level}">
+                    <div class="player-icons-needed">${playerIcons}</div>
+                    <span>${config.playersNeeded}คน</span>
+                </div>
+            `;
+
+            if (showAlert) {
+                document.getElementById('commandDisplay').classList.add('changing');
+                setTimeout(() => document.getElementById('commandDisplay').classList.remove('changing'), 500);
+                document.getElementById('newCommandAlert').classList.add('show');
+                setTimeout(() => document.getElementById('newCommandAlert').classList.remove('show'), 1500);
+            }
+        }
+
+        function checkRandomCommandChange() {
+            if (!gameState.isPlaying) return;
+            if (Date.now() - gameState.lastCommandChange >= CONFIG.commandChangeMinInterval) {
+                if (Math.random() < CONFIG.commandChangeChance) generateCommand(true);
+            }
+        }
+
+        function render() {
+            document.querySelectorAll('.floor-cell').forEach(cell => {
+                cell.className = 'floor-cell';
+                cell.innerHTML = '';
+            });
+
+            gameState.ghosts.forEach(ghost => {
+                const cell = document.querySelector(`[data-index="${ghost.y * CONFIG.gridWidth + ghost.x}"]`);
+                if (cell) {
+                    cell.classList.add('ghost', `ghost-${ghost.color}`);
+                    if (ghost.playersCapturing.size > 0 && ghost.level === gameState.currentCommand?.level) cell.classList.add('held');
+                    cell.innerHTML = `<span class="ghost-icon">👻</span><span class="ghost-level-indicator">${ghost.playersNeeded}👤</span>`;
+                }
+            });
+
+            const playersByCell = {};
+            gameState.players.forEach(p => {
+                const key = `${p.x},${p.y}`;
+                if (!playersByCell[key]) playersByCell[key] = [];
+                playersByCell[key].push(p);
+            });
+
+            Object.entries(playersByCell).forEach(([key, players]) => {
+                const [x, y] = key.split(',').map(Number);
+                const cell = document.querySelector(`[data-index="${y * CONFIG.gridWidth + x}"]`);
+                if (cell) {
+                    cell.classList.add('has-players');
+                    if (gameState.ghosts.some(g => g.level === gameState.currentCommand?.level && g.x === x && g.y === y)) {
+                        cell.classList.add('player-capturing');
+                    }
+                    const container = document.createElement('div');
+                    container.className = `players-container players-${players.length}`;
+                    players.forEach(p => {
+                        const icon = document.createElement('span');
+                        icon.className = `player-icon p${p.id}`;
+                        icon.textContent = p.icon;
+                        container.appendChild(icon);
+                    });
+                    cell.appendChild(container);
+                }
+            });
+        }
+
+        function handleKeyDown(e) {
+            if (!gameState.isPlaying) return;
+            for (let i = 1; i <= gameState.playerCount; i++) {
+                const ctrl = PLAYER_CONTROLS[i];
+                if (e.code === ctrl.up) { e.preventDefault(); movePlayer(i, 'up'); }
+                else if (e.code === ctrl.down) { e.preventDefault(); movePlayer(i, 'down'); }
+                else if (e.code === ctrl.left) { e.preventDefault(); movePlayer(i, 'left'); }
+                else if (e.code === ctrl.right) { e.preventDefault(); movePlayer(i, 'right'); }
+            }
+        }
+
+        function startGame() {
+            if (!gameState.playerCount) selectPlayers(1);
+            if (!gameState.gameTime) selectTime(60);
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.add('active');
+
+            ghostSpawnCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+            gameState = { ...gameState, isPlaying: true, score: 0, timeLeft: gameState.gameTime, currentCommand: null, ghosts: [], players: [], timers: {}, lastCommandChange: Date.now() };
+
+            initGrid();
+            initPlayers();
+            document.getElementById('scoreDisplay').textContent = '0';
+            document.getElementById('timeDisplay').textContent = formatTime(gameState.timeLeft);
+            generateCommand(false);
+
+            gameState.timers.game = setInterval(() => {
+                gameState.timeLeft--;
+                const display = document.getElementById('timeDisplay');
+                display.textContent = formatTime(gameState.timeLeft);
+                display.classList.toggle('warning', gameState.timeLeft <= 10);
+                if (gameState.timeLeft <= 0) endGame();
+            }, 1000);
+
+            gameState.timers.ghostSpawn = setInterval(spawnGhost, CONFIG.ghostSpawnInterval);
+            gameState.timers.ghostMove = setInterval(moveGhosts, CONFIG.ghostMoveInterval);
+            gameState.timers.commandChange = setInterval(checkRandomCommandChange, 2000);
+
+            spawnGhost();
+            spawnGhost();
+            spawnGhost();
+            render();
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+            Object.values(gameState.timers).forEach(t => clearInterval(t));
+
+            document.getElementById('finalScoreEnd').textContent = gameState.score;
+            document.getElementById('endModal').classList.add('show');
+        }
+
+        function resetGame() {
+            document.getElementById('endModal').classList.remove('show');
+            startGame();
+        }
+
+        function backToSetup() {
+            gameState.isPlaying = false;
+            Object.values(gameState.timers).forEach(t => clearInterval(t));
+            document.getElementById('gameScreen').classList.remove('active');
+            document.getElementById('setupScreen').classList.remove('hidden');
+            document.getElementById('endModal').classList.remove('show');
+            document.getElementById('captureProgress').classList.remove('show');
+            document.getElementById('newCommandAlert').classList.remove('show');
+        }
+
+        function createFloatingGhosts() {
+            const container = document.getElementById('floatingGhosts');
+            for (let i = 0; i < 10; i++) {
+                const ghost = document.createElement('div');
+                ghost.className = 'floating-ghost';
+                ghost.textContent = '👻';
+                ghost.style.left = `${Math.random() * 100}%`;
+                ghost.style.animationDelay = `${Math.random() * 20}s`;
+                ghost.style.animationDuration = `${15 + Math.random() * 10}s`;
+                container.appendChild(ghost);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            selectPlayers(1);
+            selectTime(60);
+            createFloatingGhosts();
+            document.addEventListener('keydown', handleKeyDown);
+        });
+    </script>
+</body>
+</html>

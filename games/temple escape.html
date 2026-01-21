@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temple Escape - Interactive Floor Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: #fff;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            padding: 20px;
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .game-title {
+            font-size: 3em;
+            font-weight: 900;
+            background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .info-item {
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 0.9em;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .guardian-container {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .guardian-eye {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            position: relative;
+            display: inline-block;
+        }
+
+        .eye-outer {
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, #ffd700 0%, #ff6b00 100%);
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+            animation: eyePulse 2s ease-in-out infinite;
+        }
+
+        @keyframes eyePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .eye-inner {
+            width: 80px;
+            height: 80px;
+            background: #000;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: height 0.3s ease;
+        }
+
+        .eye-pupil {
+            width: 30px;
+            height: 30px;
+            background: #ff0000;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px #ff0000;
+        }
+
+        .eye-closed .eye-inner {
+            height: 5px;
+        }
+
+        .guardian-status {
+            margin-top: 10px;
+            font-size: 1.5em;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-watching {
+            color: #ff0000;
+            animation: blink 0.5s ease-in-out infinite;
+        }
+
+        .status-sleeping {
+            color: #00ff00;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 3px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+            aspect-ratio: 6/10;
+            border: 3px solid rgba(255, 215, 0, 0.5);
+        }
+
+        .grid-cell {
+            background: #1a1f3a;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .grid-cell:hover {
+            transform: scale(1.05);
+        }
+
+        .grid-cell.target {
+            animation: targetPulse 1s ease-in-out infinite;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        @keyframes targetPulse {
+            0%, 100% { 
+                transform: scale(1);
+                filter: brightness(1);
+            }
+            50% { 
+                transform: scale(1.1);
+                filter: brightness(1.5);
+            }
+        }
+
+        .grid-cell.collected {
+            animation: collectEffect 0.5s ease-out forwards;
+        }
+
+        @keyframes collectEffect {
+            0% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% { 
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+            100% { 
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .grid-cell.wrong {
+            animation: wrongEffect 0.5s ease-out;
+        }
+
+        @keyframes wrongEffect {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .color-red { background: #ff0000 !important; }
+        .color-green { background: #00ff00 !important; }
+        .color-blue { background: #00ffff !important; }
+        .color-yellow { background: #ffff00 !important; }
+
+        /* Player Styles */
+        .player {
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 0 20px currentColor;
+            animation: playerPulse 1s ease-in-out infinite;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes playerPulse {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+        }
+
+        .player-1 {
+            background: radial-gradient(circle, #00ffff, #0088ff);
+            box-shadow: 0 0 25px #00ffff;
+        }
+
+        .player-2 {
+            background: radial-gradient(circle, #ff00ff, #ff0088);
+            box-shadow: 0 0 25px #ff00ff;
+        }
+
+        .player-label {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7em;
+            font-weight: 700;
+            white-space: nowrap;
+            text-shadow: 0 0 5px #000;
+        }
+
+        .grid-cell {
+            position: relative;
+        }
+
+        .start-screen, .game-over-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .screen-title {
+            font-size: 4em;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #ffd700, #ff6b00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .screen-text {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.3em;
+            background: linear-gradient(135deg, #ffd700, #ff6b00);
+            border: none;
+            border-radius: 50px;
+            color: #000;
+            font-weight: 700;
+            font-family: 'Prompt', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(255, 215, 0, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.8);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .final-level {
+            font-size: 3em;
+            color: #ffd700;
+            margin: 20px 0;
+        }
+
+        .instruction {
+            font-size: 1.2em;
+            margin-top: 15px;
+            padding: 20px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid #ffd700;
+        }
+
+        .target-display {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .target-label {
+            font-size: 1em;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        .target-colors {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .target-color-box {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            border: 2px solid #fff;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 768px) {
+            .game-title { font-size: 2em; }
+            .screen-title { font-size: 2.5em; }
+            .guardian-eye { width: 100px; height: 100px; }
+            .eye-outer { width: 100px; height: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <div class="screen-title">🏛️ TEMPLE ESCAPE 🏛️</div>
+            <div class="screen-text">
+                ยินดีต้อนรับสู่วิหารโบราณที่เต็มไปด้วยอันตราย!<br>
+                <strong>เป้าหมาย:</strong> เหยียบช่องสีตามคำสั่งเพื่อผ่านด่าน<br><br>
+                <strong>🎮 การควบคุม:</strong><br>
+                <span style="color: #00ffff;">● Player 1 (สีฟ้า)</span> - ใช้ <strong>W A S D</strong><br>
+                <span style="color: #ff00ff;">● Player 2 (สีชมพู)</span> - ใช้ <strong>Arrow Keys</strong> (↑ ← ↓ →)<br><br>
+                <strong>⚠️ กติกาสำคัญ:</strong><br>
+                • เมื่อดวงตา Guardian <span style="color: #ff0000;">เปิด</span> = ห้ามขยับ!<br>
+                • เมื่อดวงตา Guardian <span style="color: #00ff00;">ปิด</span> = ขยับได้อิสระ<br>
+                • เหยียบผิดช่อง = เปลี่ยนตำแหน่งช่องสี<br>
+                • ขยับตอนตาเปิด = GAME OVER!<br><br>
+                <strong>ผู้เล่น:</strong> 2-4 คน (เล่นเป็นทีม)
+            </div>
+            <button class="btn" onclick="startGame()">🎮 เริ่มเกม</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <div class="screen-title">💀 GAME OVER 💀</div>
+            <div class="screen-text">
+                Guardian จับได้! คุณขยับขณะที่ดวงตากำลังมอง!
+            </div>
+            <div class="final-level">ไปได้ถึงด่าน: <span id="finalLevel">0</span></div>
+            <button class="btn" onclick="restartGame()">🔄 เริ่มใหม่</button>
+        </div>
+
+        <!-- Game Header -->
+        <div class="game-header">
+            <div class="game-title">🏛️ TEMPLE ESCAPE 🏛️</div>
+        </div>
+
+        <!-- Game Info -->
+        <div class="game-info">
+            <div class="info-item">
+                <div class="info-label">ด่านปัจจุบัน</div>
+                <div class="info-value" id="currentLevel">1</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">คะแนน</div>
+                <div class="info-value" id="score">0</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">ด่านสูงสุด</div>
+                <div class="info-value" id="highestLevel">0</div>
+            </div>
+        </div>
+
+        <!-- Target Display -->
+        <div class="target-display">
+            <div class="target-label">เป้าหมาย: เหยียบช่องสีเหล่านี้</div>
+            <div class="target-colors" id="targetColors"></div>
+        </div>
+
+        <!-- Guardian Eye -->
+        <div class="guardian-container">
+            <div class="guardian-eye">
+                <div class="eye-outer" id="guardianEye">
+                    <div class="eye-inner">
+                        <div class="eye-pupil"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="guardian-status" id="guardianStatus">
+                <span class="status-sleeping">😴 GUARDIAN SLEEPING</span>
+            </div>
+        </div>
+
+        <!-- Game Grid -->
+        <div class="game-grid" id="gameGrid"></div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const GRID_WIDTH = 6;
+        const GRID_HEIGHT = 10;
+        const COLORS = ['red', 'green', 'blue', 'yellow'];
+        const GUARDIAN_WATCH_TIME = 3000; // 3 seconds
+        const GUARDIAN_SLEEP_TIME = 5000; // 5 seconds
+
+        // Player Configuration
+        const PLAYERS = [
+            { id: 1, name: 'P1', color: '#00ffff', position: { x: 0, y: 0 }, keys: { up: 'w', down: 's', left: 'a', right: 'd' } },
+            { id: 2, name: 'P2', color: '#ff00ff', position: { x: 5, y: 0 }, keys: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' } }
+        ];
+
+        // Game State
+        let gameState = {
+            level: 1,
+            score: 0,
+            highestLevel: 0,
+            isGuardianWatching: false,
+            targetCells: [],
+            collectedCells: [],
+            grid: [],
+            gameActive: false,
+            lastMoveTime: 0,
+            guardianTimer: null,
+            players: [],
+            playerElements: []
+        };
+
+        // Initialize Game
+        function initGame() {
+            createGrid();
+            loadHighScore();
+            updateDisplay();
+            setupKeyboardControls();
+        }
+
+        // Create Grid
+        function createGrid() {
+            const gridElement = document.getElementById('gameGrid');
+            gridElement.innerHTML = '';
+            gameState.grid = [];
+
+            for (let i = 0; i < GRID_HEIGHT * GRID_WIDTH; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.index = i;
+                gridElement.appendChild(cell);
+                gameState.grid.push(cell);
+            }
+        }
+
+        // Setup Keyboard Controls
+        function setupKeyboardControls() {
+            document.addEventListener('keydown', (e) => {
+                if (!gameState.gameActive) return;
+
+                // Check if Guardian is watching
+                if (gameState.isGuardianWatching) {
+                    gameOver();
+                    return;
+                }
+
+                // Find which player is moving
+                gameState.players.forEach((player, index) => {
+                    const keys = player.keys;
+                    let newX = player.position.x;
+                    let newY = player.position.y;
+
+                    if (e.key.toLowerCase() === keys.up.toLowerCase()) {
+                        newY = Math.max(0, newY - 1);
+                        e.preventDefault();
+                    } else if (e.key.toLowerCase() === keys.down.toLowerCase()) {
+                        newY = Math.min(GRID_HEIGHT - 1, newY + 1);
+                        e.preventDefault();
+                    } else if (e.key.toLowerCase() === keys.left.toLowerCase()) {
+                        newX = Math.max(0, newX - 1);
+                        e.preventDefault();
+                    } else if (e.key.toLowerCase() === keys.right.toLowerCase()) {
+                        newX = Math.min(GRID_WIDTH - 1, newX + 1);
+                        e.preventDefault();
+                    }
+
+                    // If position changed
+                    if (newX !== player.position.x || newY !== player.position.y) {
+                        player.position.x = newX;
+                        player.position.y = newY;
+                        
+                        updatePlayerPosition(index);
+                        checkCellInteraction(newX, newY);
+                    }
+                });
+            });
+        }
+
+        // Create Players
+        function createPlayers() {
+            gameState.players = JSON.parse(JSON.stringify(PLAYERS));
+            gameState.playerElements = [];
+
+            gameState.players.forEach((player, index) => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `player player-${player.id}`;
+                
+                const label = document.createElement('div');
+                label.className = 'player-label';
+                label.textContent = player.name;
+                playerDiv.appendChild(label);
+                
+                gameState.playerElements.push(playerDiv);
+                
+                // Add to initial cell
+                const cellIndex = player.position.y * GRID_WIDTH + player.position.x;
+                gameState.grid[cellIndex].appendChild(playerDiv);
+            });
+        }
+
+        // Update Player Position
+        function updatePlayerPosition(playerIndex) {
+            const player = gameState.players[playerIndex];
+            const playerElement = gameState.playerElements[playerIndex];
+            
+            // Remove from old cell
+            if (playerElement.parentElement) {
+                playerElement.parentElement.removeChild(playerElement);
+            }
+            
+            // Add to new cell
+            const cellIndex = player.position.y * GRID_WIDTH + player.position.x;
+            gameState.grid[cellIndex].appendChild(playerElement);
+        }
+
+        // Check Cell Interaction
+        function checkCellInteraction(x, y) {
+            const cellIndex = y * GRID_WIDTH + x;
+            
+            // Check if this is a target cell
+            const targetIndex = gameState.targetCells.findIndex(t => t.index === cellIndex);
+            
+            if (targetIndex !== -1 && !gameState.collectedCells.includes(cellIndex)) {
+                // Correct cell
+                collectCell(cellIndex, targetIndex);
+            }
+        }
+
+        // Start Game
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameState.gameActive = true;
+            gameState.level = 1;
+            gameState.score = 0;
+            gameState.collectedCells = [];
+            
+            createPlayers();
+            startLevel();
+            startGuardianCycle();
+        }
+
+        // Start Level
+        function startLevel() {
+            gameState.collectedCells = [];
+            const targetCount = Math.min(gameState.level + 1, 10);
+            gameState.targetCells = generateTargets(targetCount);
+            renderTargets();
+            updateDisplay();
+        }
+
+        // Generate Random Targets
+        function generateTargets(count) {
+            const targets = [];
+            const usedIndices = new Set();
+
+            for (let i = 0; i < count; i++) {
+                let index;
+                do {
+                    index = Math.floor(Math.random() * (GRID_WIDTH * GRID_HEIGHT));
+                } while (usedIndices.has(index));
+                
+                usedIndices.add(index);
+                const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                targets.push({ index, color });
+            }
+
+            return targets;
+        }
+
+        // Render Targets on Grid
+        function renderTargets() {
+            // Clear all cells colors
+            gameState.grid.forEach(cell => {
+                cell.classList.remove('color-red', 'color-green', 'color-blue', 'color-yellow', 'target');
+            });
+
+            // Display target colors in UI
+            const targetColorsDiv = document.getElementById('targetColors');
+            targetColorsDiv.innerHTML = '';
+            
+            const colorCounts = {};
+            gameState.targetCells.forEach(target => {
+                colorCounts[target.color] = (colorCounts[target.color] || 0) + 1;
+            });
+
+            Object.entries(colorCounts).forEach(([color, count]) => {
+                for (let i = 0; i < count; i++) {
+                    const box = document.createElement('div');
+                    box.className = `target-color-box color-${color}`;
+                    targetColorsDiv.appendChild(box);
+                }
+            });
+
+            // Show targets on grid
+            gameState.targetCells.forEach(target => {
+                if (!gameState.collectedCells.includes(target.index)) {
+                    const cell = gameState.grid[target.index];
+                    cell.classList.add(`color-${target.color}`, 'target');
+                }
+            });
+        }
+
+        // Collect Cell
+        function collectCell(index, targetIndex) {
+            gameState.collectedCells.push(index);
+            gameState.score += 10;
+            
+            const cell = gameState.grid[index];
+            cell.classList.add('collected');
+            
+            setTimeout(() => {
+                cell.classList.remove('target', 'collected', 'color-red', 'color-green', 'color-blue', 'color-yellow');
+            }, 500);
+
+            // Check if level complete
+            if (gameState.collectedCells.length === gameState.targetCells.length) {
+                levelComplete();
+            }
+
+            updateDisplay();
+        }
+
+        // Level Complete
+        function levelComplete() {
+            gameState.level++;
+            gameState.score += gameState.level * 50;
+            
+            if (gameState.level > gameState.highestLevel) {
+                gameState.highestLevel = gameState.level;
+                saveHighScore();
+            }
+
+            setTimeout(() => {
+                startLevel();
+            }, 1000);
+        }
+
+        // Guardian Cycle
+        function startGuardianCycle() {
+            function cycle() {
+                if (!gameState.gameActive) return;
+
+                // Guardian watches
+                setGuardianWatching(true);
+                
+                setTimeout(() => {
+                    if (!gameState.gameActive) return;
+                    
+                    // Guardian sleeps
+                    setGuardianWatching(false);
+                    
+                    setTimeout(cycle, GUARDIAN_SLEEP_TIME);
+                }, GUARDIAN_WATCH_TIME);
+            }
+
+            cycle();
+        }
+
+        // Set Guardian State
+        function setGuardianWatching(watching) {
+            gameState.isGuardianWatching = watching;
+            const eye = document.getElementById('guardianEye');
+            const status = document.getElementById('guardianStatus');
+
+            if (watching) {
+                eye.classList.remove('eye-closed');
+                status.innerHTML = '<span class="status-watching">👁️ GUARDIAN WATCHING!</span>';
+            } else {
+                eye.classList.add('eye-closed');
+                status.innerHTML = '<span class="status-sleeping">😴 GUARDIAN SLEEPING</span>';
+            }
+        }
+
+        // Game Over
+        function gameOver() {
+            gameState.gameActive = false;
+            clearTimeout(gameState.guardianTimer);
+            
+            document.getElementById('finalLevel').textContent = gameState.level;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        // Restart Game
+        function restartGame() {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            
+            // Clear players
+            gameState.playerElements.forEach(el => {
+                if (el.parentElement) {
+                    el.parentElement.removeChild(el);
+                }
+            });
+            
+            startGame();
+        }
+
+        // Update Display
+        function updateDisplay() {
+            document.getElementById('currentLevel').textContent = gameState.level;
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('highestLevel').textContent = gameState.highestLevel;
+        }
+
+        // Save/Load High Score
+        function saveHighScore() {
+            localStorage.setItem('templeEscapeHighLevel', gameState.highestLevel);
+        }
+
+        function loadHighScore() {
+            const saved = localStorage.getItem('templeEscapeHighLevel');
+            if (saved) {
+                gameState.highestLevel = parseInt(saved);
+            }
+        }
+
+        // Initialize on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
+

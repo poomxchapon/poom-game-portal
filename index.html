@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poom's Game Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            background: linear-gradient(90deg, #e94560, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+
+        .game-count {
+            display: inline-block;
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid #e94560;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(233, 69, 96, 0.3);
+            border-color: #e94560;
+        }
+
+        .game-thumbnail {
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            background: linear-gradient(135deg, rgba(233, 69, 96, 0.3), rgba(15, 52, 96, 0.5));
+        }
+
+        .game-info {
+            padding: 20px;
+        }
+
+        .game-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .game-desc {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .game-card:hover .play-btn {
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+
+        /* Fullscreen game modal */
+        .game-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 1000;
+        }
+
+        .game-modal.active {
+            display: block;
+        }
+
+        .game-modal iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: #ff6b6b;
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Poom's Game Portal</h1>
+            <p class="subtitle">HTML5 Games Collection</p>
+            <span class="game-count">10 Games</span>
+        </header>
+
+        <div class="games-grid">
+            <a href="#" class="game-card" data-game="games/Color Hunter.html">
+                <div class="game-thumbnail">🎨</div>
+                <div class="game-info">
+                    <h3 class="game-title">Color Hunter</h3>
+                    <p class="game-desc">จับสีให้ถูกต้อง ทดสอบสายตา!</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Ghost_buster.html">
+                <div class="game-thumbnail">👻</div>
+                <div class="game-info">
+                    <h3 class="game-title">Ghost Buster</h3>
+                    <p class="game-desc">ล่าผีให้หมด ก่อนเวลาจะหมด!</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Ice Land.html">
+                <div class="game-thumbnail">❄️</div>
+                <div class="game-info">
+                    <h3 class="game-title">Ice Land</h3>
+                    <p class="game-desc">ผจญภัยในดินแดนน้ำแข็ง</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Lava.html">
+                <div class="game-thumbnail">🌋</div>
+                <div class="game-info">
+                    <h3 class="game-title">Lava</h3>
+                    <p class="game-desc">หนีลาวา อย่าให้โดน!</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Memory Maze.html">
+                <div class="game-thumbnail">🧠</div>
+                <div class="game-info">
+                    <h3 class="game-title">Memory Maze</h3>
+                    <p class="game-desc">จำทางเดินให้ได้ ทดสอบความจำ</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Pixel_pong.html">
+                <div class="game-thumbnail">🏓</div>
+                <div class="game-info">
+                    <h3 class="game-title">Pixel Pong</h3>
+                    <p class="game-desc">ปิงปองสไตล์ Retro</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Rhythm_stomp.html">
+                <div class="game-thumbnail">🎵</div>
+                <div class="game-info">
+                    <h3 class="game-title">Rhythm Stomp</h3>
+                    <p class="game-desc">เหยียบจังหวะตามเพลง!</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Snake War.html">
+                <div class="game-thumbnail">🐍</div>
+                <div class="game-info">
+                    <h3 class="game-title">Snake War</h3>
+                    <p class="game-desc">งูสู้กัน ใครยาวกว่าชนะ!</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/temple escape.html">
+                <div class="game-thumbnail">🏛️</div>
+                <div class="game-info">
+                    <h3 class="game-title">Temple Escape</h3>
+                    <p class="game-desc">หนีออกจากวิหารลึกลับ</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+
+            <a href="#" class="game-card" data-game="games/Territory War.html">
+                <div class="game-thumbnail">⚔️</div>
+                <div class="game-info">
+                    <h3 class="game-title">Territory War</h3>
+                    <p class="game-desc">ยึดครองดินแดนให้มากที่สุด</p>
+                    <span class="play-btn">▶ เล่นเลย</span>
+                </div>
+            </a>
+        </div>
+
+        <footer>
+            Made with ❤️ by Poom | Powered by <a href="#">Friday Oracle</a>
+        </footer>
+    </div>
+
+    <!-- Game Modal -->
+    <div class="game-modal" id="gameModal">
+        <button class="close-btn" onclick="closeGame()">✕</button>
+        <iframe id="gameFrame" src=""></iframe>
+    </div>
+
+    <script>
+        // Game cards click handler
+        document.querySelectorAll('.game-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                const gamePath = card.dataset.game;
+                openGame(gamePath);
+            });
+        });
+
+        function openGame(path) {
+            const modal = document.getElementById('gameModal');
+            const frame = document.getElementById('gameFrame');
+            frame.src = path;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeGame() {
+            const modal = document.getElementById('gameModal');
+            const frame = document.getElementById('gameFrame');
+            modal.classList.remove('active');
+            frame.src = '';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeGame();
+            }
+        });
+    </script>
+</body>
+</html>

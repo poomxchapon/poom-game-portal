@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhythm Stomp - Interactive Floor Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a2a 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        #main-menu {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0a0a2a 100%);
+        }
+        #main-menu.hidden { display: none; }
+
+        .game-title {
+            font-size: 56px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ff00ff);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease infinite;
+            margin-bottom: 10px;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle { font-size: 18px; color: #888; margin-bottom: 6px; }
+        .song-name { font-size: 15px; color: #00ffff; margin-bottom: 20px; }
+
+        .menu-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .menu-label { font-size: 15px; color: #aaa; text-align: center; }
+        .menu-buttons { display: flex; gap: 12px; justify-content: center; }
+
+        .menu-btn {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .mode-btn {
+            background: linear-gradient(145deg, #2a2a4a, #3a3a6a);
+            color: #fff;
+            border: 2px solid #555;
+        }
+        .mode-btn:hover { transform: scale(1.05); border-color: #00ffff; }
+        .mode-btn.selected { border-color: #00ffff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.7); }
+
+        .player-btn {
+            background: linear-gradient(145deg, #4a2a4a, #6a3a6a);
+            color: #fff;
+            border: 2px solid #555;
+        }
+        .player-btn:hover { transform: scale(1.05); border-color: #ff00ff; }
+        .player-btn.selected { border-color: #ff00ff; box-shadow: 0 0 15px rgba(255, 0, 255, 0.7); }
+
+        .start-btn {
+            padding: 18px 60px;
+            font-size: 24px;
+            background: linear-gradient(145deg, #00aa00, #00dd00);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+        .start-btn:hover { transform: scale(1.1); box-shadow: 0 0 30px rgba(0, 255, 0, 0.7); }
+
+        .file-upload-section {
+            margin: 12px 0;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 2px dashed #444;
+            text-align: center;
+        }
+        .file-upload-section.has-file { border-color: #00ff00; background: rgba(0, 255, 0, 0.1); }
+        .upload-label { color: #888; margin-bottom: 6px; display: block; font-size: 13px; }
+        .upload-btn {
+            background: linear-gradient(145deg, #3a3a5a, #4a4a7a);
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #audio-upload { display: none; }
+
+        .instructions {
+            margin-top: 12px;
+            padding: 10px 18px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            max-width: 500px;
+            text-align: center;
+        }
+        .instructions h3 { color: #ffaa00; margin-bottom: 6px; font-size: 15px; }
+        .instructions p { color: #999; font-size: 12px; line-height: 1.5; }
+        .key-hint { 
+            display: inline-block;
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 1px;
+            font-family: monospace;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        #game-container {
+            display: none;
+            width: 100%; 
+            min-height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        #game-container.active { display: flex; }
+
+        #score-display {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+
+        .player-score {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 25px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            min-width: 160px;
+            text-align: center;
+        }
+        .player-score.p1 { border-color: #00ffff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); }
+        .player-score.p2 { border-color: #ff00ff; box-shadow: 0 0 10px rgba(255, 0, 255, 0.3); }
+        .player-name { font-size: 12px; color: #888; margin-bottom: 2px; }
+        .score-value { font-size: 28px; font-weight: bold; }
+        .combo-display { font-size: 12px; color: #ffaa00; margin-top: 2px; }
+
+        #judgment-display {
+            position: fixed;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 56px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 50;
+            text-shadow: 0 0 30px currentColor;
+            opacity: 0;
+        }
+        #judgment-display.show { animation: judgmentPop 0.4s ease forwards; }
+        #judgment-display.perfect { color: #ffff00; }
+        #judgment-display.good { color: #00ff00; }
+        #judgment-display.miss { color: #ff0000; }
+
+        @keyframes judgmentPop {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+
+        /* Game Area - Contains one or two grids */
+        #game-area {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .player-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-label {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            padding: 4px 15px;
+            border-radius: 8px;
+        }
+        .player-label.p1 { background: rgba(0, 255, 255, 0.2); color: #00ffff; }
+        .player-label.p2 { background: rgba(255, 0, 255, 0.2); color: #ff00ff; }
+
+        /* LED Floor Grid */
+        .led-floor {
+            display: grid;
+            gap: 3px;
+            background: #111;
+            padding: 6px;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        .led-cell {
+            width: 45px; height: 45px;
+            background: #1a1a2a;
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .led-cell.target-zone { background: #252545; }
+        .led-cell.target-zone.p1-zone {
+            border: 3px solid rgba(0, 255, 255, 0.8);
+            animation: pulseP1 0.8s ease-in-out infinite;
+        }
+        .led-cell.target-zone.p2-zone {
+            border: 3px solid rgba(255, 0, 255, 0.8);
+            animation: pulseP2 0.8s ease-in-out infinite;
+        }
+        @keyframes pulseP1 {
+            0%, 100% { box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.4); }
+            50% { box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.9); }
+        }
+        @keyframes pulseP2 {
+            0%, 100% { box-shadow: inset 0 0 10px rgba(255, 0, 255, 0.4); }
+            50% { box-shadow: inset 0 0 20px rgba(255, 0, 255, 0.9); }
+        }
+
+        /* SQUARE Notes */
+        .note {
+            position: absolute;
+            width: 40px; height: 40px;
+            border-radius: 6px; /* Square with slight rounded corners */
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            z-index: 10;
+        }
+        .note.p1 {
+            background: linear-gradient(135deg, #00ffff, #0088aa);
+            box-shadow: 0 0 15px #00ffff, 0 0 25px rgba(0, 255, 255, 0.5);
+            color: #003;
+            border: 2px solid #00ffff;
+        }
+        .note.p2 {
+            background: linear-gradient(135deg, #ff00ff, #aa0088);
+            box-shadow: 0 0 15px #ff00ff, 0 0 25px rgba(255, 0, 255, 0.5);
+            color: #300;
+            border: 2px solid #ff00ff;
+        }
+
+        .hit-effect {
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: 4px;
+            pointer-events: none;
+            animation: hitPulse 0.3s ease-out forwards;
+        }
+        .hit-effect.perfect { background: radial-gradient(circle, rgba(255, 255, 0, 0.9), transparent); }
+        .hit-effect.good { background: radial-gradient(circle, rgba(0, 255, 0, 0.9), transparent); }
+        .hit-effect.miss { background: radial-gradient(circle, rgba(255, 0, 0, 0.9), transparent); }
+        @keyframes hitPulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .beat-flash {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+            opacity: 0;
+            border-radius: 10px;
+            z-index: 1;
+        }
+        .beat-flash.active { animation: beatFlash 0.1s ease; }
+        @keyframes beatFlash { 0% { opacity: 0.3; } 100% { opacity: 0; } }
+
+        /* Keyboard Buttons Container */
+        #keyboard-area {
+            display: flex;
+            gap: 30px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+
+        .keyboard-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .kb-btn {
+            width: 50px;
+            height: 55px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .kb-btn .key-label { font-size: 20px; font-weight: bold; }
+        .kb-btn .lane-num { font-size: 9px; opacity: 0.7; }
+        
+        .kb-btn.p1 {
+            background: linear-gradient(180deg, #00cccc, #008888);
+            border: 3px solid #00ffff;
+            box-shadow: 0 3px 10px rgba(0, 255, 255, 0.4);
+        }
+        .kb-btn.p1:hover, .kb-btn.p1.active {
+            transform: scale(0.95);
+            background: linear-gradient(180deg, #00ffff, #00aaaa);
+        }
+        
+        .kb-btn.p2 {
+            background: linear-gradient(180deg, #cc00cc, #880088);
+            border: 3px solid #ff00ff;
+            box-shadow: 0 3px 10px rgba(255, 0, 255, 0.4);
+        }
+        .kb-btn.p2:hover, .kb-btn.p2.active {
+            transform: scale(0.95);
+            background: linear-gradient(180deg, #ff00ff, #aa00aa);
+        }
+
+        #game-info {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .info-item {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .progress-container {
+            width: 180px; height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            width: 0%;
+        }
+
+        #back-btn {
+            padding: 6px 16px;
+            background: linear-gradient(145deg, #aa0000, #880000);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        #countdown {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            flex-direction: column;
+        }
+        #countdown.active { display: flex; }
+        #countdown-number {
+            font-size: 120px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 40px #fff;
+        }
+        .countdown-text { font-size: 20px; color: #aaa; margin-top: 10px; }
+
+        #game-over {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        #game-over.active { display: flex; }
+        .game-over-title {
+            font-size: 48px;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .final-scores { display: flex; gap: 30px; margin-bottom: 25px; }
+        .final-score-card {
+            background: rgba(50, 50, 80, 0.8);
+            padding: 20px 35px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .final-score-card.winner { border: 3px solid gold; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+        .final-score-label { font-size: 18px; color: #aaa; margin-bottom: 6px; }
+        .final-score-value { font-size: 36px; font-weight: bold; }
+        .stats-row { font-size: 13px; color: #888; margin-top: 6px; }
+        .grade { font-size: 56px; margin-top: 10px; }
+        .game-over-buttons { display: flex; gap: 15px; }
+        .game-over-btn {
+            padding: 10px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .retry-btn { background: linear-gradient(145deg, #00aa00, #00dd00); color: white; }
+        .menu-return-btn { background: linear-gradient(145deg, #555, #777); color: white; }
+
+        .mode-indicator {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .mode-indicator.classic { border: 2px solid #00ff00; color: #00ff00; }
+        .mode-indicator.hard { border: 2px solid #ff0000; color: #ff0000; }
+
+        /* VS Text for 2 Player */
+        .vs-text {
+            font-size: 36px;
+            font-weight: bold;
+            color: #ffaa00;
+            text-shadow: 0 0 20px #ffaa00;
+            align-self: center;
+            margin-top: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div id="main-menu">
+        <h1 class="game-title">RHYTHM STOMP</h1>
+        <p class="subtitle">Interactive Floor LED Game</p>
+        <p class="song-name" id="song-name">🎵 Ready to Play! 🎵</p>
+
+        <div class="menu-section">
+            <p class="menu-label">SELECT MODE</p>
+            <div class="menu-buttons">
+                <button class="menu-btn mode-btn selected" data-mode="classic">🎵 Classic</button>
+                <button class="menu-btn mode-btn" data-mode="hard">🔥 Hard</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <p class="menu-label">PLAYERS</p>
+            <div class="menu-buttons">
+                <button class="menu-btn player-btn selected" data-players="1">👤 1P</button>
+                <button class="menu-btn player-btn" data-players="2">👥 2P</button>
+            </div>
+        </div>
+
+        <div class="file-upload-section" id="upload-section">
+            <span class="upload-label">🎵 Optional: Upload music (MP3, WAV, OGG)</span>
+            <button class="upload-btn" onclick="document.getElementById('audio-upload').click()">Choose File</button>
+            <input type="file" id="audio-upload" accept="audio/*">
+        </div>
+
+        <button class="start-btn" id="start-game">▶ START</button>
+
+        <div class="instructions">
+            <h3>📖 How to Play</h3>
+            <p>
+                <strong>Classic:</strong> Notes fall down ↓ Hit at the bottom!<br>
+                <strong>P1 Keys:</strong> 
+                <span class="key-hint">A</span>
+                <span class="key-hint">S</span>
+                <span class="key-hint">D</span>
+                <span class="key-hint">F</span>
+                <span class="key-hint">G</span>
+                <span class="key-hint">H</span><br>
+                <strong>P2 Keys:</strong> 
+                <span class="key-hint">J</span>
+                <span class="key-hint">K</span>
+                <span class="key-hint">L</span>
+                <span class="key-hint">;</span>
+                <span class="key-hint">'</span>
+                <span class="key-hint">Enter</span><br>
+                <strong>Score:</strong> Perfect=100 | Good=50 | Miss=0
+            </p>
+        </div>
+    </div>
+
+    <div id="countdown">
+        <div id="countdown-number">3</div>
+        <p class="countdown-text">Get Ready!</p>
+    </div>
+
+    <div id="game-container">
+        <div class="mode-indicator" id="mode-indicator">CLASSIC MODE</div>
+        
+        <div id="score-display">
+            <div class="player-score p1">
+                <div class="player-name">PLAYER 1</div>
+                <div class="score-value" id="p1-score">0</div>
+                <div class="combo-display">Combo: <span id="p1-combo">0</span></div>
+            </div>
+            <div class="player-score p2" id="p2-score-panel" style="display: none;">
+                <div class="player-name">PLAYER 2</div>
+                <div class="score-value" id="p2-score">0</div>
+                <div class="combo-display">Combo: <span id="p2-combo">0</span></div>
+            </div>
+        </div>
+        
+        <div id="judgment-display"></div>
+        
+        <!-- Game Area with 1 or 2 grids -->
+        <div id="game-area"></div>
+        
+        <!-- Keyboard Area -->
+        <div id="keyboard-area"></div>
+        
+        <div id="game-info">
+            <div class="info-item">
+                <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
+            </div>
+            <div class="info-item">Time: <span id="time-display">60</span>s</div>
+            <div class="info-item">Hit: <span id="notes-hit">0</span>/<span id="notes-total">0</span></div>
+            <button id="back-btn">← Menu</button>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h1 class="game-over-title">SONG COMPLETE!</h1>
+        <div class="final-scores" id="final-scores"></div>
+        <div class="game-over-buttons">
+            <button class="game-over-btn retry-btn" id="retry-btn">🔄 Retry</button>
+            <button class="game-over-btn menu-return-btn" id="menu-btn">🏠 Menu</button>
+        </div>
+    </div>
+
+    <audio id="game-audio" preload="auto"></audio>
+
+    <script>
+        const CONFIG = {
+            GRID_WIDTH: 6,
+            GRID_HEIGHT: 10,
+            CELL_SIZE: 45, 
+            GAP: 3,
+            PERFECT_WINDOW: 150, 
+            GOOD_WINDOW: 300,
+            POINTS_PERFECT: 100, 
+            POINTS_GOOD: 50,
+            NOTE_TRAVEL_TIME: 2200, 
+            BPM: 128,
+            GAME_DURATION: 60000
+        };
+        CONFIG.BEAT_INTERVAL = 60000 / CONFIG.BPM;
+
+        const P1_KEYS = ['a', 's', 'd', 'f', 'g', 'h'];
+        const P2_KEYS = ['j', 'k', 'l', ';', "'", 'Enter'];
+
+        let gameState = {
+            mode: 'classic', 
+            players: 1, 
+            isPlaying: false,
+            startTime: 0, 
+            activeNotes: [], 
+            noteIdCounter: 0,
+            beatMap: [], 
+            beatMapIndex: 0,
+            scores: { p1: 0, p2: 0 }, 
+            combos: { p1: 0, p2: 0 },
+            maxCombos: { p1: 0, p2: 0 },
+            stats: { p1: { perfect: 0, good: 0, miss: 0 }, p2: { perfect: 0, good: 0, miss: 0 } },
+            notesHit: 0, 
+            notesTotal: 0, 
+            songDuration: CONFIG.GAME_DURATION,
+            useAudio: false,
+            grids: {} // Will hold references to grid elements
+        };
+
+        const el = {
+            mainMenu: document.getElementById('main-menu'),
+            gameContainer: document.getElementById('game-container'),
+            countdown: document.getElementById('countdown'),
+            countdownNumber: document.getElementById('countdown-number'),
+            gameOver: document.getElementById('game-over'),
+            gameArea: document.getElementById('game-area'),
+            keyboardArea: document.getElementById('keyboard-area'),
+            judgmentDisplay: document.getElementById('judgment-display'),
+            modeIndicator: document.getElementById('mode-indicator'),
+            p1Score: document.getElementById('p1-score'),
+            p2Score: document.getElementById('p2-score'),
+            p1Combo: document.getElementById('p1-combo'),
+            p2Combo: document.getElementById('p2-combo'),
+            p2ScorePanel: document.getElementById('p2-score-panel'),
+            progressBar: document.getElementById('progress-bar'),
+            notesHit: document.getElementById('notes-hit'),
+            notesTotal: document.getElementById('notes-total'),
+            finalScores: document.getElementById('final-scores'),
+            gameAudio: document.getElementById('game-audio'),
+            startBtn: document.getElementById('start-game'),
+            audioUpload: document.getElementById('audio-upload'),
+            songName: document.getElementById('song-name'),
+            uploadSection: document.getElementById('upload-section'),
+            timeDisplay: document.getElementById('time-display')
+        };
+
+        let audioContext = null;
+
+        el.audioUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                el.gameAudio.src = url;
+                el.songName.textContent = `🎵 ${file.name} 🎵`;
+                el.uploadSection.classList.add('has-file');
+                el.gameAudio.addEventListener('loadedmetadata', () => {
+                    gameState.songDuration = el.gameAudio.duration * 1000;
+                    gameState.useAudio = true;
+                }, { once: true });
+            }
+        });
+
+        function initAudioContext() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') audioContext.resume();
+        }
+
+        function playSound(freq, dur = 0.1, type = 'sine', vol = 0.3) {
+            try {
+                initAudioContext();
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain); 
+                gain.connect(audioContext.destination);
+                osc.frequency.value = freq; 
+                osc.type = type;
+                gain.gain.setValueAtTime(vol, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + dur);
+                osc.start(); 
+                osc.stop(audioContext.currentTime + dur);
+            } catch(e) {}
+        }
+
+        function playPerfect() { playSound(880, 0.15, 'sine', 0.4); setTimeout(() => playSound(1100, 0.1), 50); }
+        function playGood() { playSound(660, 0.12, 'sine', 0.35); }
+        function playMiss() { playSound(150, 0.2, 'sawtooth', 0.25); }
+        function playBeat() { playSound(100, 0.05, 'square', 0.12); }
+
+        function generateBeatMap(players, duration, mode) {
+            const map = [];
+            const beat = CONFIG.BEAT_INTERVAL;
+            const dur = duration || CONFIG.GAME_DURATION;
+            const lanes = CONFIG.GRID_WIDTH;
+
+            if (mode === 'classic') {
+                // CLASSIC MODE - Reduced notes
+                for (let t = 2000; t < Math.min(8000, dur); t += beat * 3) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat * 1.5, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                for (let t = 8000; t < Math.min(16000, dur); t += beat * 2) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                for (let t = 16000; t < Math.min(45000, dur); t += beat * 1.5) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat * 0.75, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                for (let t = 45000; t < Math.min(55000, dur); t += beat * 2) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                for (let t = 55000; t < dur - 3000; t += beat * 1.5) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat * 0.75, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+            } else {
+                // HARD MODE - More than Classic but not too overwhelming
+                // Intro 0-6s
+                for (let t = 1500; t < Math.min(6000, dur); t += beat * 2) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                // Build 6-12s
+                for (let t = 6000; t < Math.min(12000, dur); t += beat * 1.2) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat * 0.6, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                // Main 12-45s - moderate intensity
+                for (let t = 12000; t < Math.min(45000, dur); t += beat) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat/2, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                // Cool down 45-55s
+                for (let t = 45000; t < Math.min(55000, dur); t += beat * 1.5) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat * 0.75, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+
+                // Finale 55-end
+                for (let t = 55000; t < dur - 2000; t += beat) {
+                    map.push({ time: t, lane: Math.floor(Math.random() * lanes), player: 'p1' });
+                    if (players === 2)
+                        map.push({ time: t + beat/2, lane: Math.floor(Math.random() * lanes), player: 'p2' });
+                }
+            }
+
+            return map.sort((a, b) => a.time - b.time);
+        }
+
+        function createGameArea() {
+            el.gameArea.innerHTML = '';
+            el.keyboardArea.innerHTML = '';
+            gameState.grids = {};
+
+            // Create Player 1 Area
+            const p1Area = document.createElement('div');
+            p1Area.className = 'player-area';
+            
+            const p1Label = document.createElement('div');
+            p1Label.className = 'player-label p1';
+            p1Label.textContent = 'PLAYER 1';
+            p1Area.appendChild(p1Label);
+            
+            const p1Grid = createGrid('p1');
+            p1Area.appendChild(p1Grid);
+            gameState.grids.p1 = p1Grid;
+            
+            el.gameArea.appendChild(p1Area);
+
+            // Create P1 Keyboard
+            const p1Keyboard = createKeyboard('p1', P1_KEYS);
+            el.keyboardArea.appendChild(p1Keyboard);
+
+            // If 2 players, add VS and P2
+            if (gameState.players === 2) {
+                // VS Text
+                const vsText = document.createElement('div');
+                vsText.className = 'vs-text';
+                vsText.textContent = 'VS';
+                el.gameArea.appendChild(vsText);
+
+                // Create Player 2 Area
+                const p2Area = document.createElement('div');
+                p2Area.className = 'player-area';
+                
+                const p2Label = document.createElement('div');
+                p2Label.className = 'player-label p2';
+                p2Label.textContent = 'PLAYER 2';
+                p2Area.appendChild(p2Label);
+                
+                const p2Grid = createGrid('p2');
+                p2Area.appendChild(p2Grid);
+                gameState.grids.p2 = p2Grid;
+                
+                el.gameArea.appendChild(p2Area);
+
+                // Create P2 Keyboard
+                const p2Keyboard = createKeyboard('p2', P2_KEYS);
+                el.keyboardArea.appendChild(p2Keyboard);
+            }
+        }
+
+        function createGrid(player) {
+            const grid = document.createElement('div');
+            grid.className = 'led-floor';
+            grid.id = `grid-${player}`;
+            grid.style.gridTemplateColumns = `repeat(${CONFIG.GRID_WIDTH}, ${CONFIG.CELL_SIZE}px)`;
+            grid.style.gridTemplateRows = `repeat(${CONFIG.GRID_HEIGHT}, ${CONFIG.CELL_SIZE}px)`;
+
+            // Beat flash
+            const flash = document.createElement('div');
+            flash.className = 'beat-flash';
+            flash.id = `beat-flash-${player}`;
+            grid.appendChild(flash);
+
+            for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
+                for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'led-cell';
+                    cell.dataset.x = x; 
+                    cell.dataset.y = y;
+                    cell.dataset.player = player;
+
+                    // Target zone at bottom
+                    if (y === CONFIG.GRID_HEIGHT - 1) {
+                        cell.classList.add('target-zone', `${player}-zone`);
+                    }
+
+                    cell.addEventListener('click', () => handleHit(x, player));
+                    cell.addEventListener('touchstart', (e) => { 
+                        e.preventDefault(); 
+                        handleHit(x, player); 
+                    });
+                    grid.appendChild(cell);
+                }
+            }
+
+            return grid;
+        }
+
+        function createKeyboard(player, keys) {
+            const keyboard = document.createElement('div');
+            keyboard.className = 'keyboard-buttons';
+            keyboard.id = `keyboard-${player}`;
+
+            keys.forEach((key, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `kb-btn ${player}`;
+                const displayKey = key === 'Enter' ? '↵' : key.toUpperCase();
+                btn.innerHTML = `<span class="key-label">${displayKey}</span><span class="lane-num">${idx + 1}</span>`;
+                btn.dataset.lane = idx;
+                btn.dataset.player = player;
+                btn.addEventListener('mousedown', () => handleHit(idx, player));
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleHit(idx, player); });
+                keyboard.appendChild(btn);
+            });
+
+            return keyboard;
+        }
+
+        function getCell(x, y, player) { 
+            const grid = gameState.grids[player];
+            if (!grid) return null;
+            return grid.querySelector(`[data-x="${x}"][data-y="${y}"]`); 
+        }
+
+        function getCurrentTime() {
+            if (gameState.useAudio && el.gameAudio.src) return el.gameAudio.currentTime * 1000;
+            return Date.now() - gameState.startTime;
+        }
+
+        class Note {
+            constructor(id, player, lane, targetTime) {
+                this.id = id; 
+                this.player = player; 
+                this.lane = lane;
+                this.targetTime = targetTime;
+                this.spawnTime = targetTime - CONFIG.NOTE_TRAVEL_TIME;
+                this.isHit = false; 
+                this.isMissed = false; 
+                this.element = null;
+
+                this.startX = lane;
+                this.targetX = lane;
+                this.startY = -1;
+                this.targetY = CONFIG.GRID_HEIGHT - 1;
+            }
+
+            spawn() {
+                this.element = document.createElement('div');
+                this.element.className = `note ${this.player}`;
+                this.element.innerHTML = '▪';
+                
+                const grid = gameState.grids[this.player];
+                if (grid) {
+                    grid.appendChild(this.element);
+                }
+                this.update(this.spawnTime);
+            }
+
+            update(currentTime) {
+                if (!this.element || this.isHit || this.isMissed) return false;
+                const progress = Math.min(Math.max((currentTime - this.spawnTime) / CONFIG.NOTE_TRAVEL_TIME, 0), 1.3);
+                const x = this.startX + (this.targetX - this.startX) * progress;
+                const y = this.startY + (this.targetY - this.startY) * progress;
+                const cw = CONFIG.CELL_SIZE + CONFIG.GAP;
+                this.element.style.left = `${x * cw + 8}px`;
+                this.element.style.top = `${y * cw + 8}px`;
+                return currentTime > this.targetTime + CONFIG.GOOD_WINDOW;
+            }
+
+            getTiming(t) { return Math.abs(t - this.targetTime); }
+
+            destroy() {
+                if (this.element?.parentNode) {
+                    this.element.style.transition = 'transform 0.1s, opacity 0.1s';
+                    this.element.style.transform = 'scale(0)';
+                    this.element.style.opacity = '0';
+                    setTimeout(() => this.element?.parentNode?.removeChild(this.element), 100);
+                }
+            }
+        }
+
+        function handleHit(lane, player) {
+            if (!gameState.isPlaying) return;
+            
+            // Button feedback
+            const keyboard = document.getElementById(`keyboard-${player}`);
+            if (keyboard) {
+                const btn = keyboard.querySelector(`[data-lane="${lane}"]`);
+                if (btn) {
+                    btn.classList.add('active');
+                    setTimeout(() => btn.classList.remove('active'), 100);
+                }
+            }
+
+            const t = getCurrentTime();
+
+            let best = null, bestT = Infinity;
+            for (const n of gameState.activeNotes) {
+                if (n.isHit || n.isMissed || n.player !== player || n.lane !== lane) continue;
+                const timing = n.getTiming(t);
+                if (timing < bestT && timing <= CONFIG.GOOD_WINDOW) { 
+                    bestT = timing; 
+                    best = n; 
+                }
+            }
+
+            if (best) {
+                let judgment, points;
+                if (bestT <= CONFIG.PERFECT_WINDOW) {
+                    judgment = 'perfect'; 
+                    points = CONFIG.POINTS_PERFECT;
+                    playPerfect(); 
+                    gameState.stats[player].perfect++;
+                } else {
+                    judgment = 'good'; 
+                    points = CONFIG.POINTS_GOOD;
+                    playGood(); 
+                    gameState.stats[player].good++;
+                }
+
+                best.isHit = true; 
+                best.destroy();
+                
+                const bonus = Math.floor(gameState.combos[player] / 10) * 10;
+                gameState.scores[player] += points + bonus;
+                gameState.combos[player]++;
+                gameState.maxCombos[player] = Math.max(gameState.maxCombos[player], gameState.combos[player]);
+                gameState.notesHit++;
+
+                const cell = getCell(lane, CONFIG.GRID_HEIGHT - 1, player);
+                if (cell) showHitEffect(cell, judgment);
+                
+                showJudgment(judgment);
+                updateScore();
+            }
+        }
+
+        function showJudgment(j) {
+            el.judgmentDisplay.textContent = j.toUpperCase();
+            el.judgmentDisplay.className = '';
+            void el.judgmentDisplay.offsetWidth;
+            el.judgmentDisplay.className = `${j} show`;
+        }
+
+        function showHitEffect(cell, j) {
+            const fx = document.createElement('div');
+            fx.className = `hit-effect ${j}`;
+            cell.appendChild(fx);
+            setTimeout(() => fx.remove(), 300);
+        }
+
+        function updateScore() {
+            el.p1Score.textContent = gameState.scores.p1.toLocaleString();
+            el.p1Combo.textContent = gameState.combos.p1;
+            if (gameState.players === 2) {
+                el.p2Score.textContent = gameState.scores.p2.toLocaleString();
+                el.p2Combo.textContent = gameState.combos.p2;
+            }
+            el.notesHit.textContent = gameState.notesHit;
+        }
+
+        let gameLoopId = null, lastBeat = 0;
+
+        function gameLoop() {
+            if (!gameState.isPlaying) return;
+
+            const t = getCurrentTime();
+            el.progressBar.style.width = `${Math.min((t / gameState.songDuration) * 100, 100)}%`;
+            el.timeDisplay.textContent = Math.max(0, Math.ceil((gameState.songDuration - t) / 1000));
+
+            while (gameState.beatMapIndex < gameState.beatMap.length) {
+                const nd = gameState.beatMap[gameState.beatMapIndex];
+                if (t >= nd.time - CONFIG.NOTE_TRAVEL_TIME) {
+                    const n = new Note(gameState.noteIdCounter++, nd.player, nd.lane, nd.time);
+                    n.spawn();
+                    gameState.activeNotes.push(n);
+                    gameState.notesTotal++;
+                    el.notesTotal.textContent = gameState.notesTotal;
+                    gameState.beatMapIndex++;
+                } else break;
+            }
+
+            for (const n of gameState.activeNotes) {
+                if (n.isHit || n.isMissed) continue;
+                if (n.update(t)) {
+                    n.isMissed = true; 
+                    n.destroy();
+                    gameState.combos[n.player] = 0;
+                    gameState.stats[n.player].miss++;
+                    showJudgment('miss'); 
+                    playMiss(); 
+                    updateScore();
+                }
+            }
+            gameState.activeNotes = gameState.activeNotes.filter(n => !n.isHit && !n.isMissed);
+
+            // Beat flash on all grids
+            if (t - lastBeat >= CONFIG.BEAT_INTERVAL) {
+                lastBeat = Math.floor(t / CONFIG.BEAT_INTERVAL) * CONFIG.BEAT_INTERVAL;
+                
+                ['p1', 'p2'].forEach(p => {
+                    const flash = document.getElementById(`beat-flash-${p}`);
+                    if (flash) {
+                        flash.classList.remove('active');
+                        void flash.offsetWidth;
+                        flash.classList.add('active');
+                    }
+                });
+                
+                if (!gameState.useAudio) playBeat();
+            }
+
+            const ended = gameState.useAudio ? el.gameAudio.ended : (t >= gameState.songDuration);
+            if (ended) { endGame(); return; }
+            
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGameLoop() {
+            gameState.startTime = Date.now();
+            lastBeat = 0;
+            if (gameState.useAudio && el.gameAudio.src) {
+                el.gameAudio.currentTime = 0;
+                el.gameAudio.play().catch(console.log);
+            }
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function stopGameLoop() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = null;
+            if (gameState.useAudio) el.gameAudio.pause();
+        }
+
+        function startGame() {
+            initAudioContext();
+            resetState();
+            if (!gameState.useAudio) gameState.songDuration = CONFIG.GAME_DURATION;
+            
+            gameState.beatMap = generateBeatMap(gameState.players, gameState.songDuration, gameState.mode);
+
+            el.mainMenu.classList.add('hidden');
+            el.gameContainer.classList.add('active');
+            el.p2ScorePanel.style.display = gameState.players === 2 ? 'block' : 'none';
+            el.modeIndicator.textContent = gameState.mode === 'classic' ? 'CLASSIC MODE' : 'HARD MODE';
+            el.modeIndicator.className = `mode-indicator ${gameState.mode}`;
+
+            createGameArea();
+            showCountdown();
+        }
+
+        function showCountdown() {
+            el.countdown.classList.add('active');
+            let c = 3;
+            el.countdownNumber.textContent = c;
+            playSound(440, 0.15);
+            
+            const iv = setInterval(() => {
+                c--;
+                if (c > 0) { el.countdownNumber.textContent = c; playSound(440, 0.15); }
+                else if (c === 0) { el.countdownNumber.textContent = 'GO!'; playSound(880, 0.25); }
+                else {
+                    clearInterval(iv);
+                    el.countdown.classList.remove('active');
+                    gameState.isPlaying = true;
+                    startGameLoop();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+            stopGameLoop();
+            gameState.activeNotes.forEach(n => n.destroy());
+            gameState.activeNotes = [];
+            setTimeout(showGameOver, 500);
+        }
+
+        function grade(s) {
+            const tot = s.perfect + s.good + s.miss;
+            if (tot === 0) return 'D';
+            const acc = ((s.perfect * 100 + s.good * 50) / (tot * 100)) * 100;
+            if (acc >= 95) return 'S';
+            if (acc >= 90) return 'A';
+            if (acc >= 80) return 'B';
+            if (acc >= 70) return 'C';
+            return 'D';
+        }
+
+        function showGameOver() {
+            const s1 = gameState.stats.p1, s2 = gameState.stats.p2;
+            const g1 = grade(s1), g2 = grade(s2);
+            
+            let winner = '';
+            if (gameState.players === 2) {
+                if (gameState.scores.p1 > gameState.scores.p2) winner = 'p1';
+                else if (gameState.scores.p2 > gameState.scores.p1) winner = 'p2';
+                else winner = 'tie';
+            }
+            
+            let html = `
+                <div class="final-score-card ${gameState.players === 1 || winner === 'p1' ? 'winner' : ''}">
+                    <div class="final-score-label">PLAYER 1</div>
+                    <div class="final-score-value" style="color:#00ffff">${gameState.scores.p1.toLocaleString()}</div>
+                    <div class="grade">${g1}</div>
+                    <div class="stats-row">P:${s1.perfect} G:${s1.good} M:${s1.miss}</div>
+                    <div class="stats-row">Max Combo: ${gameState.maxCombos.p1}</div>
+                </div>`;
+            
+            if (gameState.players === 2) {
+                html += `
+                <div class="final-score-card ${winner === 'p2' ? 'winner' : ''}">
+                    <div class="final-score-label">PLAYER 2</div>
+                    <div class="final-score-value" style="color:#ff00ff">${gameState.scores.p2.toLocaleString()}</div>
+                    <div class="grade">${g2}</div>
+                    <div class="stats-row">P:${s2.perfect} G:${s2.good} M:${s2.miss}</div>
+                    <div class="stats-row">Max Combo: ${gameState.maxCombos.p2}</div>
+                </div>`;
+            }
+            el.finalScores.innerHTML = html;
+            el.gameOver.classList.add('active');
+        }
+
+        function resetState() {
+            Object.assign(gameState, {
+                isPlaying: false, startTime: 0, activeNotes: [], noteIdCounter: 0,
+                beatMap: [], beatMapIndex: 0,
+                scores: { p1: 0, p2: 0 }, combos: { p1: 0, p2: 0 },
+                maxCombos: { p1: 0, p2: 0 },
+                stats: { p1: { perfect: 0, good: 0, miss: 0 }, p2: { perfect: 0, good: 0, miss: 0 } },
+                notesHit: 0, notesTotal: 0,
+                grids: {}
+            });
+            el.p1Score.textContent = '0'; el.p2Score.textContent = '0';
+            el.p1Combo.textContent = '0'; el.p2Combo.textContent = '0';
+            el.progressBar.style.width = '0%';
+            el.notesHit.textContent = '0'; el.notesTotal.textContent = '0';
+            el.timeDisplay.textContent = Math.ceil(gameState.songDuration / 1000);
+        }
+
+        function returnToMenu() {
+            stopGameLoop();
+            gameState.activeNotes.forEach(n => n.destroy());
+            gameState.activeNotes = [];
+            el.gameContainer.classList.remove('active');
+            el.gameOver.classList.remove('active');
+            el.mainMenu.classList.remove('hidden');
+        }
+
+        document.querySelectorAll('.mode-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                gameState.mode = b.dataset.mode;
+            });
+        });
+
+        document.querySelectorAll('.player-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.player-btn').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                gameState.players = parseInt(b.dataset.players);
+            });
+        });
+
+        document.getElementById('start-game').addEventListener('click', startGame);
+        document.getElementById('back-btn').addEventListener('click', returnToMenu);
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            el.gameOver.classList.remove('active');
+            startGame();
+        });
+        document.getElementById('menu-btn').addEventListener('click', returnToMenu);
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameState.isPlaying) return;
+            const key = e.key.toLowerCase();
+            
+            const p1Idx = P1_KEYS.indexOf(key);
+            if (p1Idx !== -1) { e.preventDefault(); handleHit(p1Idx, 'p1'); return; }
+            
+            if (gameState.players === 2) {
+                let p2Idx = P2_KEYS.indexOf(key);
+                if (p2Idx === -1 && e.key === 'Enter') p2Idx = 5;
+                if (p2Idx !== -1) { e.preventDefault(); handleHit(p2Idx, 'p2'); }
+            }
+        });
+
+        document.addEventListener('click', initAudioContext, { once: true });
+        document.addEventListener('touchstart', initAudioContext, { once: true });
+    </script>
+</body>
+</html>

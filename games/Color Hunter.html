@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fortal XR Arena</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://unpkg.com/lucide@latest"></script> <!-- Added for Game -->
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script> <!-- Added for Game -->
+
+    <style>
+        /* --- PORTAL STYLES --- */
+        body {
+            background-color: #050505;
+            color: #e0e0e0;
+            font-family: 'Share Tech Mono', monospace;
+            overflow-x: hidden;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-jetbrains { font-family: 'JetBrains Mono', monospace; }
+
+        /* Glitch Effect */
+        .cyber-glitch { position: relative; }
+        .cyber-glitch::before, .cyber-glitch::after {
+            content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #050505;
+        }
+        .cyber-glitch::before { left: 2px; text-shadow: -1px 0 #ff3300; clip: rect(44px, 450px, 56px, 0); animation: glitch-anim 5s infinite linear alternate-reverse; }
+        .cyber-glitch::after { left: -2px; text-shadow: -1px 0 #ffff00; clip: rect(44px, 450px, 56px, 0); animation: glitch-anim2 5s infinite linear alternate-reverse; }
+        @keyframes glitch-anim { 0% { clip: rect(12px, 9999px, 86px, 0); } 20% { clip: rect(65px, 9999px, 2px, 0); } 100% { clip: rect(59px, 9999px, 81px, 0); } }
+        @keyframes glitch-anim2 { 0% { clip: rect(65px, 9999px, 100px, 0); } 20% { clip: rect(12px, 9999px, 21px, 0); } 100% { clip: rect(51px, 9999px, 12px, 0); } }
+
+        /* Portal Scanline */
+        .scanline { width: 100%; height: 100px; z-index: 10; background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(255, 204, 0, 0.05) 50%, rgba(0,0,0,0) 100%); opacity: 0.1; position: absolute; bottom: 100%; animation: scanline 10s linear infinite; pointer-events: none; }
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100%; } }
+        .bg-grid-pattern { background-image: linear-gradient(rgba(255, 204, 0, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 204, 0, 0.05) 1px, transparent 1px); background-size: 30px 30px; }
+        .clip-corner { clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- GAME SPECIFIC STYLES --- */
+        .clip-path-polygon-game { clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%); }
+        .glow-text { text-shadow: 0 0 10px currentColor; }
+        .game-scanline { background: linear-gradient(to bottom, transparent, rgba(0, 255, 100, 0.1), transparent); animation: scan 2s linear infinite; }
+        @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+        .tile-hit { animation: flash 0.2s ease-out; }
+        @keyframes flash { 0% { background-color: white; transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body class="min-h-screen bg-[#050505] text-[#e0e0e0]">
+
+    <!-- ================= PORTAL VIEW ================= -->
+    <div id="portal-view" class="relative min-h-screen flex flex-col transition-opacity duration-500">
+        <!-- Background Grid & Scanline -->
+        <div class="fixed inset-0 bg-grid-pattern pointer-events-none z-0 opacity-30"></div>
+        <div class="fixed inset-0 pointer-events-none z-50 mix-blend-overlay scanline"></div>
+
+        <!-- Navbar -->
+        <nav class="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-yellow-500/30">
+            <div class="container mx-auto px-4 h-20 flex justify-between items-center">
+                <div class="flex items-center gap-3 group cursor-pointer" onclick="resetView()">
+                    <div class="w-10 h-10 bg-yellow-500/10 border border-yellow-400 flex items-center justify-center rotate-45 group-hover:rotate-0 transition-all duration-300">
+                        <i class="ph ph-cpu text-yellow-400 text-xl -rotate-45 group-hover:rotate-0 transition-all duration-300"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <h1 class="text-2xl font-orbitron font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 cyber-glitch" data-text="FORTAL XR">
+                            FORTAL XR
+                        </h1>
+                        <span class="text-[10px] text-yellow-600 tracking-[0.3em]">ARENA_SYSTEM_V.2.0</span>
+                    </div>
+                </div>
+
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#" class="text-sm tracking-widest hover:text-yellow-400 transition-colors relative group">GAMES<span class="absolute -bottom-1 left-0 w-0 h-[2px] bg-yellow-400 group-hover:w-full transition-all duration-300"></span></a>
+                    <a href="#" class="text-sm tracking-widest hover:text-yellow-400 transition-colors relative group">LEADERBOARD<span class="absolute -bottom-1 left-0 w-0 h-[2px] bg-yellow-400 group-hover:w-full transition-all duration-300"></span></a>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 px-3 py-1 border border-yellow-500/30 bg-yellow-500/5 clip-corner">
+                        <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                        <span class="text-xs text-yellow-400 font-bold">SYS: ONLINE</span>
+                    </div>
+                    <button class="hidden md:flex bg-yellow-500/20 hover:bg-yellow-500 hover:text-black border border-yellow-500 px-6 py-2 clip-corner transition-all duration-300 font-bold tracking-wider items-center gap-2 group">
+                        CONNECT <i class="ph ph-lightning group-hover:fill-current"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-grow container mx-auto px-4 py-8 z-10 relative">
+            <section>
+                <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4 border-b border-gray-800 pb-4">
+                    <div class="flex flex-col gap-2 w-full md:w-auto">
+                        <h2 class="text-2xl font-orbitron text-yellow-400 flex items-center gap-2">
+                            <i class="ph ph-activity"></i> SIMULATION_LIST
+                        </h2>
+                        <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide" id="category-container"></div>
+                    </div>
+
+                    <div class="relative w-full md:w-64">
+                        <input type="text" id="search-input" placeholder="SEARCH_PROTOCOL..." class="w-full bg-black border border-gray-700 p-2 pl-10 focus:outline-none focus:border-yellow-500 text-yellow-400 placeholder-gray-600 font-mono clip-corner" oninput="handleSearch(this.value)" />
+                        <i class="ph ph-magnifying-glass absolute left-3 top-3 text-gray-600"></i>
+                    </div>
+                </div>
+                <div id="game-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-gray-800 bg-black py-8 mt-12 relative overflow-hidden">
+            <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="ph ph-cpu text-gray-600 text-xl"></i>
+                    <span class="font-orbitron font-bold text-gray-500">FORTAL XR <span class="text-gray-700">CORP.</span></span>
+                </div>
+                <div class="text-xs text-gray-600 font-mono text-center md:text-right">
+                    <p>COPYRIGHT © 2077 FORTAL XR ARENA.</p>
+                </div>
+            </div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600"></div>
+        </footer>
+
+        <!-- Modal -->
+        <div id="game-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+            <div class="bg-zinc-900 border-2 border-yellow-500 w-full max-w-4xl relative shadow-[0_0_50px_rgba(234,179,8,0.2)] clip-corner">
+                <button onclick="closeModal()" class="absolute top-0 right-0 p-4 text-gray-500 hover:text-white z-10">
+                    <i class="ph ph-x text-3xl"></i>
+                </button>
+                <div class="flex flex-col md:flex-row h-full">
+                    <div id="modal-image-container" class="h-64 md:h-auto w-full md:w-1/3 flex items-center justify-center relative overflow-hidden">
+                        <i id="modal-icon" class="text-9xl text-black/40"></i>
+                        <div class="absolute inset-0 bg-black/10 scanline"></div>
+                    </div>
+                    <div class="p-8 md:w-2/3 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-2">
+                                <span id="modal-category" class="bg-yellow-500 text-black px-2 font-bold text-xs"></span>
+                                <span class="text-green-500 text-xs font-mono border border-green-900 px-2 bg-green-900/20">SERVER: STABLE</span>
+                            </div>
+                            <h2 id="modal-title" class="text-4xl font-orbitron font-bold text-white mb-4"></h2>
+                            <p class="text-gray-400 mb-6 font-mono leading-relaxed">
+                                Initializing request for <span id="modal-title-desc"></span>. Secure connection established. 
+                            </p>
+                            <div class="grid grid-cols-3 gap-4 mb-8 border-t border-b border-gray-800 py-4">
+                                <div class="text-center"><div class="text-xs text-gray-500">PLAYERS</div><div id="modal-players" class="text-xl font-bold text-yellow-400"></div></div>
+                                <div class="text-center border-l border-gray-800"><div class="text-xs text-gray-500">PING</div><div class="text-xl font-bold text-green-400">12ms</div></div>
+                                <div class="text-center border-l border-gray-800"><div class="text-xs text-gray-500">SIZE</div><div class="text-xl font-bold text-white">45 GB</div></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="launchColorHunter()" class="flex-1 bg-yellow-500 text-black py-4 font-bold text-lg hover:bg-yellow-400 hover:shadow-[0_0_20px_rgba(234,179,8,0.6)] transition-all clip-corner flex justify-center items-center gap-2">
+                                <i class="ph ph-play-circle text-2xl"></i> LAUNCH GAME
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= GAME VIEW (COLOR HUNTER) ================= -->
+    <div id="game-view" class="hidden relative min-h-screen flex flex-col bg-[#0b0c15] text-white font-jetbrains overflow-hidden">
+        <!-- Background -->
+        <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-20 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,255,255,0.05),transparent_70%)] pointer-events-none"></div>
+
+        <!-- HEADER -->
+        <header class="relative z-10 border-b border-white/10 bg-black/40 backdrop-blur-sm p-4">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <button onclick="exitToPortal()" class="bg-gray-800 hover:bg-red-500 p-2 rounded text-white transition-colors mr-2">
+                        <i data-lucide="arrow-left"></i>
+                    </button>
+                    <div class="bg-pink-500 p-2 rounded shadow-[0_0_15px_#ec4899]">
+                        <i data-lucide="zap" class="text-white"></i>
+                    </div>
+                    <h1 class="text-2xl font-black italic tracking-tighter text-white">
+                        COLOR <span class="text-cyan-400">HUNTER</span> 
+                        <span class="text-xs ml-2 opacity-50 not-italic font-mono border border-white/20 px-1 rounded">10x6 Stable</span>
+                    </h1>
+                </div>
+                <div id="connection-status" class="flex items-center gap-2 px-3 py-1 rounded border border-red-500 text-red-400 bg-red-500/10 text-xs font-mono transition-colors duration-500">
+                    <i data-lucide="alert-circle" width="14"></i>
+                    <span>BRIDGE OFFLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN GAME CONTENT -->
+        <main id="hunter-container" class="flex-1 relative z-10 flex flex-col items-center justify-center p-4">
+            <!-- Game Content Injected Here -->
+        </main>
+    </div>
+
+    <!-- ================= SCRIPTS ================= -->
+    <script>
+        // --- PORTAL LOGIC ---
+        const games = [{ id: 1, title: 'COLOR HUNTER', category: 'ACTION', rating: '5.0', players: 'NEW', status: 'ONLINE', imgGradient: 'from-pink-500 to-yellow-500', iconClass: 'ph-crosshair' }];
+        const categories = ['ALL SYSTEMS', 'ACTION', 'RACING', 'PUZZLE', 'RPG'];
+        let activeCategory = 'ALL SYSTEMS';
+        let searchTerm = '';
+
+        function initPortal() {
+            renderCategories();
+            renderGames();
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('category-container');
+            if(!container) return;
+            container.innerHTML = categories.map(cat => {
+                const isActive = activeCategory === cat;
+                return `<button onclick="setCategory('${cat}')" class="px-4 py-1 text-sm border clip-corner transition-all whitespace-nowrap ${isActive ? 'bg-yellow-500 border-yellow-500 text-black font-bold' : 'border-gray-800 hover:border-yellow-500 text-gray-500 hover:text-yellow-400'}">${cat}</button>`;
+            }).join('');
+        }
+
+        function renderGames() {
+            const grid = document.getElementById('game-grid');
+            if(!grid) return;
+            const filteredGames = games.filter(g => (activeCategory === 'ALL SYSTEMS' || g.category === activeCategory) && g.title.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            grid.innerHTML = filteredGames.map(game => `
+                <div onclick="openModal(${game.id})" class="group relative bg-black/50 border border-gray-800 hover:border-yellow-500 transition-all duration-300 cursor-pointer overflow-hidden clip-corner">
+                    <div class="h-48 w-full bg-gradient-to-br ${game.imgGradient} relative opacity-80 group-hover:opacity-100 transition-opacity">
+                        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30"></div>
+                        <div class="absolute inset-0 flex items-center justify-center"><i class="ph ${game.iconClass} text-6xl text-black/50 group-hover:text-black/80 transition-all transform group-hover:scale-110 duration-500"></i></div>
+                        <div class="absolute top-2 right-2 bg-black/90 px-2 py-1 text-xs font-bold border border-yellow-600/50 text-yellow-400">RATING: ${game.rating}</div>
+                    </div>
+                    <div class="p-5 relative">
+                        <div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="flex justify-between items-start mb-2"><h3 class="text-xl font-bold font-orbitron group-hover:text-yellow-400 transition-colors">${game.title}</h3><span class="text-xs text-gray-500 border border-gray-800 px-1">${game.category}</span></div>
+                        <div class="mt-4 h-0 overflow-hidden group-hover:h-10 transition-all duration-300"><button class="w-full bg-yellow-500/20 border border-yellow-500 text-yellow-400 py-1 hover:bg-yellow-500 hover:text-black font-bold transition-all uppercase text-sm tracking-wider">INITIALIZE</button></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openModal(id) {
+            const game = games.find(g => g.id === id);
+            if(!game) return;
+            document.getElementById('modal-title').innerText = game.title;
+            document.getElementById('modal-title-desc').innerText = game.title;
+            document.getElementById('modal-category').innerText = game.category;
+            document.getElementById('modal-players').innerText = game.players;
+            document.getElementById('modal-image-container').className = `h-64 md:h-auto w-full md:w-1/3 flex items-center justify-center relative overflow-hidden bg-gradient-to-br ${game.imgGradient}`;
+            document.getElementById('modal-icon').className = `ph ${game.iconClass} text-9xl text-black/40`;
+            document.getElementById('game-modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('game-modal').classList.add('hidden'); }
+        function setCategory(cat) { activeCategory = cat; renderCategories(); renderGames(); }
+        function handleSearch(val) { searchTerm = val; renderGames(); }
+        function resetView() { closeModal(); activeCategory = 'ALL SYSTEMS'; searchTerm = ''; renderCategories(); renderGames(); }
+
+        // --- GAME LAUNCHER LOGIC ---
+        function launchColorHunter() {
+            closeModal();
+            document.getElementById('portal-view').classList.add('hidden');
+            document.getElementById('game-view').classList.remove('hidden');
+            startColorHunterGame();
+        }
+
+        function exitToPortal() {
+            // Stop Game Loops
+            if (hunterGame.gameLoopInterval) clearInterval(hunterGame.gameLoopInterval);
+            if (hunterGame.roundLoopInterval) clearInterval(hunterGame.roundLoopInterval);
+            
+            document.getElementById('game-view').classList.add('hidden');
+            document.getElementById('portal-view').classList.remove('hidden');
+        }
+
+        // ================= COLOR HUNTER GAME ENGINE =================
+        const hunterGame = {
+            BRIDGE_URL: 'http://localhost:3000',
+            DEFAULT_CONFIG: {
+                gridWidth: 10, gridHeight: 6, minRoundTime: 3000, maxRoundTime: 7000, minTime: 90, maxTime: 300, initialTargetCount: 4,
+                colors: [
+                    { name: 'RED', hex: '#FF0033', label: 'แดง', glow: 'shadow-[0_0_20px_#FF0033]' },
+                    { name: 'GREEN', hex: '#00FF66', label: 'เขียว', glow: 'shadow-[0_0_20px_#00FF66]' },
+                    { name: 'BLUE', hex: '#0066FF', label: 'น้ำเงิน', glow: 'shadow-[0_0_20px_#0066FF]' },
+                    { name: 'YELLOW', hex: '#FFCC00', label: 'เหลือง', glow: 'shadow-[0_0_20px_#FFCC00]' },
+                    { name: 'MAGENTA', hex: '#FF00FF', label: 'ม่วง', glow: 'shadow-[0_0_20px_#FF00FF]' },
+                    { name: 'CYAN', hex: '#00FFFF', label: 'ฟ้า', glow: 'shadow-[0_0_20px_#00FFFF]' },
+                ]
+            },
+            state: { appState: 'SETUP', playerCount: 2, durationPerPlayer: 90, currentPlayerIndex: 0, scores: [0, 0, 0, 0], timeLeft: 0, targetColor: null, gridColors: [], roundProgress: 0, combo: 0, isConnected: false, connectionLog: [] },
+            tileManager: null,
+            socket: null,
+            gameLoopInterval: null,
+            roundLoopInterval: null,
+            roundStartTime: 0
+        };
+
+        class BeatTileManagerJS {
+            constructor(width, height) { this.width = width; this.height = height; this.tiles = new Array(width * height).fill('#000000'); }
+            randomizeBoard(targetColorHex) {
+                this.tiles.fill('#000000');
+                for (let i = 0; i < this.tiles.length; i++) { if (Math.random() < 0.15) { const randomCol = hunterGame.DEFAULT_CONFIG.colors[Math.floor(Math.random() * hunterGame.DEFAULT_CONFIG.colors.length)]; if (randomCol.hex !== targetColorHex) this.tiles[i] = randomCol.hex; } }
+                let placed = 0, attempts = 0;
+                while (placed < hunterGame.DEFAULT_CONFIG.initialTargetCount && attempts < 100) { const idx = Math.floor(Math.random() * this.tiles.length); if (this.tiles[idx] !== targetColorHex) { this.tiles[idx] = targetColorHex; placed++; } attempts++; }
+                return [...this.tiles];
+            }
+            checkTile(index, targetColorHex) { return index >= 0 && index < this.tiles.length && this.tiles[index] === targetColorHex; }
+            respawnTarget(hitIndex, targetColorHex) {
+                this.tiles[hitIndex] = '#000000';
+                let bestSpot = -1, maxDist = -1;
+                const hitX = hitIndex % this.width, hitY = Math.floor(hitIndex / this.width);
+                for (let i = 0; i < 20; i++) {
+                    const candidate = Math.floor(Math.random() * this.tiles.length);
+                    if (this.tiles[candidate] !== targetColorHex && candidate !== hitIndex) {
+                        const cX = candidate % this.width, cY = Math.floor(candidate / this.width);
+                        const dist = Math.sqrt(Math.pow(cX - hitX, 2) + Math.pow(cY - hitY, 2));
+                        if (dist > maxDist) { maxDist = dist; bestSpot = candidate; }
+                    }
+                }
+                if (bestSpot === -1) { let safety = 0; do { bestSpot = Math.floor(Math.random() * this.tiles.length); safety++; } while (this.tiles[bestSpot] === targetColorHex && safety < 100); }
+                this.tiles[bestSpot] = targetColorHex;
+                return [...this.tiles];
+            }
+        }
+
+        function startColorHunterGame() {
+            hunterGame.tileManager = new BeatTileManagerJS(hunterGame.DEFAULT_CONFIG.gridWidth, hunterGame.DEFAULT_CONFIG.gridHeight);
+            hunterGame.state.targetColor = hunterGame.DEFAULT_CONFIG.colors[0];
+            hunterGame.state.appState = 'SETUP';
+            renderHunterSetup();
+            initSocket();
+            lucide.createIcons();
+        }
+
+        function initSocket() {
+            try {
+                hunterGame.socket = io(hunterGame.BRIDGE_URL);
+                hunterGame.socket.on('connect', () => { hunterGame.state.isConnected = true; updateConnectionStatusUI(); addLog("Connected to Bridge Server."); });
+                hunterGame.socket.on('disconnect', () => { hunterGame.state.isConnected = false; updateConnectionStatusUI(); addLog("Disconnected from Bridge Server."); });
+            } catch (e) { console.warn("Socket.io failed."); }
+        }
+
+        function updateConnectionStatusUI() {
+            const el = document.getElementById('connection-status');
+            if (hunterGame.state.isConnected) {
+                el.className = "flex items-center gap-2 px-3 py-1 rounded border border-green-500 text-green-400 bg-green-500/10 text-xs font-mono transition-colors duration-500";
+                el.innerHTML = `<i data-lucide="check-circle-2" width="14"></i><span>BRIDGE CONNECTED</span>`;
+            } else {
+                el.className = "flex items-center gap-2 px-3 py-1 rounded border border-red-500 text-red-400 bg-red-500/10 text-xs font-mono transition-colors duration-500";
+                el.innerHTML = `<i data-lucide="alert-circle" width="14"></i><span>BRIDGE OFFLINE</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function addLog(msg) {
+            hunterGame.state.connectionLog.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+            if (hunterGame.state.connectionLog.length > 5) hunterGame.state.connectionLog.shift();
+            if (hunterGame.state.appState === 'CONNECTING') renderConnecting();
+        }
+
+        function startConnectionCheck() {
+            hunterGame.state.appState = 'CONNECTING';
+            hunterGame.state.connectionLog = [];
+            renderConnecting();
+            setTimeout(() => {
+                addLog("Bridge not found. Starting Simulation Mode.");
+                setTimeout(() => startPlayerTurn(0), 1500);
+            }, 1000);
+        }
+
+        function startPlayerTurn(pIndex) {
+            hunterGame.state.currentPlayerIndex = pIndex;
+            hunterGame.state.timeLeft = hunterGame.state.durationPerPlayer;
+            hunterGame.state.combo = 0;
+            hunterGame.state.appState = 'TRANSITION';
+            renderTransition();
+        }
+
+        function beginGameplay() {
+            hunterGame.state.appState = 'PLAYING';
+            renderGameplay();
+            startRoundLogic();
+            if (hunterGame.gameLoopInterval) clearInterval(hunterGame.gameLoopInterval);
+            hunterGame.gameLoopInterval = setInterval(() => {
+                hunterGame.state.timeLeft--;
+                if (hunterGame.state.timeLeft <= 0) endTurn();
+                else updateTimerUI();
+            }, 1000);
+        }
+
+        function startRoundLogic() {
+            let currentRoundDuration = 0;
+            const runRound = () => {
+                currentRoundDuration = Math.floor(Math.random() * (hunterGame.DEFAULT_CONFIG.maxRoundTime - hunterGame.DEFAULT_CONFIG.minRoundTime + 1)) + hunterGame.DEFAULT_CONFIG.minRoundTime;
+                const newTarget = hunterGame.DEFAULT_CONFIG.colors[Math.floor(Math.random() * hunterGame.DEFAULT_CONFIG.colors.length)];
+                hunterGame.state.targetColor = newTarget;
+                hunterGame.state.gridColors = hunterGame.tileManager.randomizeBoard(newTarget.hex);
+                hunterGame.roundStartTime = Date.now();
+                updateGameplayUI();
+            };
+            runRound();
+            if (hunterGame.roundLoopInterval) clearInterval(hunterGame.roundLoopInterval);
+            hunterGame.roundLoopInterval = setInterval(() => {
+                const elapsed = Date.now() - hunterGame.roundStartTime;
+                hunterGame.state.roundProgress = Math.min((elapsed / currentRoundDuration) * 100, 100);
+                updateProgressBarUI();
+                if (elapsed >= currentRoundDuration) runRound();
+            }, 50);
+        }
+
+        function endTurn() {
+            clearInterval(hunterGame.gameLoopInterval);
+            clearInterval(hunterGame.roundLoopInterval);
+            if (hunterGame.state.currentPlayerIndex < hunterGame.state.playerCount - 1) {
+                startPlayerTurn(hunterGame.state.currentPlayerIndex + 1);
+            } else {
+                hunterGame.state.appState = 'GAMEOVER';
+                renderGameOver();
+            }
+        }
+
+        function handleInputTrigger(index) {
+            if (hunterGame.state.appState !== 'PLAYING') return;
+            const isCorrect = hunterGame.tileManager.checkTile(index, hunterGame.state.targetColor.hex);
+            if (isCorrect) {
+                hunterGame.state.scores[hunterGame.state.currentPlayerIndex] += (100 + (hunterGame.state.combo * 10));
+                hunterGame.state.combo++;
+                hunterGame.state.gridColors = hunterGame.tileManager.respawnTarget(index, hunterGame.state.targetColor.hex);
+                const tileEl = document.getElementById(`tile-${index}`);
+                if (tileEl) { tileEl.style.backgroundColor = '#FFFFFF'; tileEl.classList.add('tile-hit'); setTimeout(() => tileEl.classList.remove('tile-hit'), 200); }
+                setTimeout(() => { if (hunterGame.state.appState === 'PLAYING') updateGridUI(); }, 50);
+            } else {
+                hunterGame.state.combo = 0;
+                hunterGame.state.scores[hunterGame.state.currentPlayerIndex] = Math.max(0, hunterGame.state.scores[hunterGame.state.currentPlayerIndex] - 50);
+            }
+            updateScoreUI();
+        }
+
+        function formatTime(seconds) { return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`; }
+
+        // --- HUNTER RENDERERS ---
+        const getHunterContainer = () => document.getElementById('hunter-container');
+
+        function renderHunterSetup() {
+            getHunterContainer().innerHTML = `
+                <div class="w-full max-w-2xl bg-slate-900/80 border border-cyan-500/30 p-8 rounded-xl backdrop-blur-md shadow-[0_0_50px_rgba(0,255,255,0.1)]">
+                    <div class="flex items-center gap-4 mb-8"><div class="p-3 bg-cyan-900/30 rounded-lg border border-cyan-500/50"><i data-lucide="settings" class="text-cyan-400" width="32" height="32"></i></div><div><h2 class="text-3xl font-black text-white tracking-tighter italic">SYSTEM CONFIG</h2><p class="text-cyan-500/70 text-sm font-mono uppercase">Game Parameters</p></div></div>
+                    <div class="space-y-8">
+                        <div><label class="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2"><i data-lucide="users" width="14"></i> Number of Players</label><div class="flex gap-4" id="player-buttons"></div></div>
+                        <div><div class="flex justify-between items-end mb-3"><label class="text-xs font-bold text-pink-500 uppercase tracking-widest flex items-center gap-2"><i data-lucide="clock" width="14"></i> Duration Per Player</label><span id="duration-display" class="text-2xl font-mono text-pink-400 font-bold glow-text">${formatTime(hunterGame.state.durationPerPlayer)}</span></div><input type="range" min="${hunterGame.DEFAULT_CONFIG.minTime}" max="${hunterGame.DEFAULT_CONFIG.maxTime}" step="30" value="${hunterGame.state.durationPerPlayer}" class="w-full h-3 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500" oninput="updateDuration(this.value)"><div class="flex justify-between text-[10px] text-slate-500 font-mono mt-2"><span>1:30</span><span>5:00</span></div></div>
+                        <button onclick="startConnectionCheck()" class="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-black text-2xl py-6 rounded clip-path-polygon-game mt-4 transition-all hover:scale-[1.02] flex items-center justify-center gap-3"><i data-lucide="zap" class="animate-pulse"></i> INITIATE SYSTEM</button>
+                    </div>
+                </div>
+            `;
+            const btnContainer = document.getElementById('player-buttons');
+            [1, 2, 3, 4].forEach(n => {
+                const isActive = hunterGame.state.playerCount === n;
+                const btn = document.createElement('button');
+                btn.className = `flex-1 py-4 font-black text-xl rounded border-2 skew-x-[-10deg] transition-all ${isActive ? 'bg-cyan-500 border-cyan-400 text-black shadow-[0_0_20px_rgba(0,255,255,0.5)]' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-cyan-500/50'}`;
+                btn.innerHTML = `<div class="skew-x-[10deg]">${n}</div>`;
+                btn.onclick = () => { hunterGame.state.playerCount = n; renderHunterSetup(); };
+                btnContainer.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        window.updateDuration = function(val) { hunterGame.state.durationPerPlayer = parseInt(val); document.getElementById('duration-display').innerText = formatTime(hunterGame.state.durationPerPlayer); }
+
+        function renderConnecting() {
+            getHunterContainer().innerHTML = `
+                <div class="w-full max-w-md bg-black border border-green-500/30 p-6 rounded font-mono text-sm relative overflow-hidden">
+                    <div class="absolute inset-0 game-scanline pointer-events-none"></div>
+                    <div class="flex items-center gap-2 mb-4 text-green-500 border-b border-green-500/30 pb-2"><i data-lucide="activity" class="animate-pulse"></i> CONNECTION STATUS</div>
+                    <div class="space-y-2 h-48 overflow-y-auto" id="log-container">${hunterGame.state.connectionLog.map(l => `<div class="text-green-400/80">${l}</div>`).join('')}</div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderTransition() {
+            getHunterContainer().innerHTML = `
+                <div class="text-center animate-[zoomIn_0.3s_ease-out]">
+                    <h2 class="text-cyan-500 text-sm font-bold tracking-[0.5em] mb-4">NEXT CHALLENGER</h2>
+                    <div class="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-pink-500 mb-6 italic" style="-webkit-text-stroke: 2px white;">P${hunterGame.state.currentPlayerIndex + 1}</div>
+                    <p class="text-white/60 mb-8">Get ready to step on the floor</p>
+                    <button onclick="beginGameplay()" class="bg-white text-black text-2xl font-bold py-4 px-12 rounded-full hover:bg-cyan-400 hover:scale-110 transition-all shadow-[0_0_30px_rgba(255,255,255,0.4)]">READY START</button>
+                </div>
+            `;
+        }
+
+        function renderGameplay() {
+            getHunterContainer().innerHTML = `
+                <div class="w-full max-w-6xl flex flex-col gap-6">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-slate-900/80 border-l-4 border-yellow-400 p-4 rounded-r-lg clip-path-polygon-game">
+                            <div class="text-xs text-yellow-400 font-bold uppercase mb-1">Current Player</div>
+                            <div class="text-4xl font-black text-white italic">P${hunterGame.state.currentPlayerIndex + 1}</div>
+                        </div>
+                        <div class="flex flex-col items-center justify-center">
+                            <div id="target-visual" class="relative w-24 h-24 rounded-full border-4 border-white flex items-center justify-center bg-black/50 backdrop-blur transition-all duration-300"><div id="target-inner" class="w-20 h-20 rounded-full"></div></div>
+                            <div id="target-name" class="mt-2 text-xl font-bold uppercase tracking-widest"></div>
+                            <div class="w-48 h-2 bg-slate-800 rounded-full mt-2 overflow-hidden border border-white/20"><div id="round-bar" class="h-full bg-white transition-all duration-100 ease-linear" style="width: 100%"></div></div>
+                        </div>
+                        <div class="bg-slate-900/80 border-r-4 border-pink-500 p-4 rounded-l-lg text-right">
+                            <div class="text-xs text-pink-500 font-bold uppercase mb-1">Time Left</div>
+                            <div id="timer-display" class="text-5xl font-mono font-bold text-white leading-none mb-2">${formatTime(hunterGame.state.timeLeft)}</div>
+                            <div id="score-display" class="text-lg text-cyan-400 font-mono">SCORE: ${hunterGame.state.scores[hunterGame.state.currentPlayerIndex].toLocaleString()}</div>
+                            <div id="combo-display" class="text-yellow-400 text-xs font-black italic mt-1 hidden"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-center mt-4 h-[60vh]"><div id="game-grid-hunter" class="grid gap-2 p-4 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl relative h-full aspect-[10/6]" style="grid-template-columns: repeat(${hunterGame.DEFAULT_CONFIG.gridWidth}, minmax(0, 1fr));"></div></div>
+                </div>
+            `;
+            lucide.createIcons();
+            updateGameplayUI();
+        }
+
+        function updateGameplayUI() {
+            const targetEl = document.getElementById('target-visual');
+            const innerEl = document.getElementById('target-inner');
+            const nameEl = document.getElementById('target-name');
+            if(targetEl) {
+                targetEl.className = `relative w-24 h-24 rounded-full border-4 border-white flex items-center justify-center bg-black/50 backdrop-blur transition-all duration-300 ${hunterGame.state.targetColor.glow}`;
+                innerEl.style.backgroundColor = hunterGame.state.targetColor.hex;
+                nameEl.innerText = hunterGame.state.targetColor.name;
+                nameEl.style.color = hunterGame.state.targetColor.hex;
+            }
+            updateGridUI();
+            updateScoreUI();
+        }
+
+        function updateGridUI() {
+            const gridEl = document.getElementById('game-grid-hunter');
+            if(!gridEl) return;
+            gridEl.innerHTML = '';
+            hunterGame.state.gridColors.forEach((color, index) => {
+                const btn = document.createElement('button');
+                btn.id = `tile-${index}`;
+                const isTarget = color === hunterGame.state.targetColor.hex;
+                btn.className = `relative w-full h-full rounded transition-all duration-75 active:scale-90 overflow-hidden group ${isTarget ? 'animate-pulse shadow-[0_0_15px_currentColor] z-10' : 'opacity-80'}`;
+                btn.style.backgroundColor = color;
+                if(color !== '#000000') btn.style.boxShadow = `0 0 10px ${color}40`;
+                btn.onmousedown = () => handleInputTrigger(index);
+                gridEl.appendChild(btn);
+            });
+        }
+
+        function updateScoreUI() {
+            const scoreEl = document.getElementById('score-display');
+            const comboEl = document.getElementById('combo-display');
+            if(scoreEl) scoreEl.innerText = `SCORE: ${hunterGame.state.scores[hunterGame.state.currentPlayerIndex].toLocaleString()}`;
+            if(comboEl) {
+                if(hunterGame.state.combo > 1) { comboEl.classList.remove('hidden'); comboEl.classList.add('animate-bounce'); comboEl.innerText = `COMBO x${hunterGame.state.combo} 🔥`; } else { comboEl.classList.add('hidden'); }
+            }
+        }
+        function updateTimerUI() { const t = document.getElementById('timer-display'); if(t) t.innerText = formatTime(hunterGame.state.timeLeft); }
+        function updateProgressBarUI() { const b = document.getElementById('round-bar'); if(b) b.style.width = `${100 - hunterGame.state.roundProgress}%`; }
+
+        function renderGameOver() {
+            const maxScore = Math.max(...hunterGame.state.scores);
+            const winnerIndex = hunterGame.state.scores.indexOf(maxScore);
+            getHunterContainer().innerHTML = `
+                <div class="w-full max-w-4xl flex flex-col items-center animate-[fadeIn_0.5s]">
+                    <h1 class="text-6xl md:text-8xl font-black text-pink-500 mb-2 italic tracking-tighter" style="text-shadow: 4px 4px 0px #00FFFF;">MISSION COMPLETE</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full mt-8">
+                        ${hunterGame.state.scores.slice(0, hunterGame.state.playerCount).map((score, i) => `
+                            <div class="relative p-6 rounded-xl border-2 flex flex-col items-center gap-2 overflow-hidden ${i === winnerIndex ? 'bg-yellow-400/10 border-yellow-400' : 'bg-slate-800/50 border-slate-700'}">
+                                ${i === winnerIndex ? '<div class="absolute top-0 right-0 bg-yellow-400 text-black text-xs font-bold px-2 py-1">WINNER</div>' : ''}
+                                <div class="text-xs text-slate-400 font-bold tracking-widest">PLAYER ${i+1}</div>
+                                <div class="text-4xl font-mono font-bold ${i === winnerIndex ? 'text-yellow-400' : 'text-white'}">${score.toLocaleString()}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="flex gap-4 mt-12">
+                        <button onclick="hunterGame.state.scores=[0,0,0,0];startColorHunterGame()" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors border border-slate-600 px-6 py-3 rounded hover:bg-slate-800"><i data-lucide="refresh-cw" width="20"></i> RESTART SESSION</button>
+                        <button onclick="exitToPortal()" class="flex items-center gap-2 bg-red-600 text-white hover:bg-red-500 transition-colors px-6 py-3 rounded font-bold"><i data-lucide="log-out" width="20"></i> EXIT TO PORTAL</button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // Initialize Portal
+        initPortal();
+    </script>
+</body>
+</html>
+

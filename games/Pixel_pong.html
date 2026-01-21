@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIXEL PONG - Neon Arcade Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cell-size: 70px;
+            --led-gap: 6px;
+            --p1-color: #00f2ff;
+            --p1-glow: rgba(0, 242, 255, 0.6);
+            --p2-color: #ff0077;
+            --p2-glow: rgba(255, 0, 119, 0.6);
+            --ball-color: #ffff00;
+            --ball-glow: rgba(255, 255, 0, 0.8);
+            --bg-dark: #0a0a0f;
+            --panel-bg: rgba(15, 15, 25, 0.95);
+            --accent-purple: #9d4edd;
+            --grid-line: rgba(255, 255, 255, 0.03);
+        }
+
+        * { box-sizing: border-box; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 1px); }
+            94% { transform: translate(2px, -1px); }
+            96% { transform: translate(-1px, 2px); }
+            98% { transform: translate(1px, -2px); }
+        }
+
+        @keyframes borderGlow {
+            0%, 100% { box-shadow: 0 0 20px var(--p1-glow), 0 0 40px var(--p1-glow), inset 0 0 60px rgba(0, 242, 255, 0.1); }
+            50% { box-shadow: 0 0 30px var(--p2-glow), 0 0 60px var(--p2-glow), inset 0 0 80px rgba(255, 0, 119, 0.1); }
+        }
+
+        @keyframes scoreFlash {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); text-shadow: 0 0 40px currentColor; }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes goalExplosion {
+            0% { transform: scale(0); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(ellipse at 20% 80%, rgba(157, 78, 221, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 242, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(255, 0, 119, 0.05) 0%, transparent 70%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, var(--grid-line) 2px, var(--grid-line) 4px);
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Scanline Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(transparent, rgba(255,255,255,0.03), transparent);
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* Vignette Effect */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* UI Overlays */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 5, 15, 0.92);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: all 0.5s ease;
+        }
+
+        .hidden { 
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(1.1);
+        }
+
+        /* Setup Panel */
+        .panel {
+            background: var(--panel-bg);
+            padding: 50px;
+            border-radius: 24px;
+            border: 2px solid rgba(157, 78, 221, 0.3);
+            box-shadow: 
+                0 25px 80px rgba(0,0,0,0.8),
+                0 0 100px rgba(157, 78, 221, 0.2),
+                inset 0 1px 0 rgba(255,255,255,0.1);
+            width: 480px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent);
+            animation: float 4s ease-in-out infinite;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 52px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--p1-color), var(--ball-color), var(--p2-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glitch 5s ease-in-out infinite;
+            text-shadow: none;
+            position: relative;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            letter-spacing: 6px;
+            color: var(--accent-purple);
+            margin-bottom: 40px;
+            text-transform: uppercase;
+        }
+
+        .config-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 15px;
+            letter-spacing: 3px;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 35px;
+        }
+
+        .btn-group button {
+            background: rgba(30, 30, 50, 0.8);
+            border: 2px solid rgba(100, 100, 150, 0.3);
+            color: #888;
+            padding: 14px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-group button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-group button:hover::before {
+            left: 100%;
+        }
+
+        .btn-group button:hover {
+            border-color: rgba(157, 78, 221, 0.5);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
+        .btn-group button.selected {
+            background: linear-gradient(135deg, rgba(157, 78, 221, 0.3), rgba(0, 242, 255, 0.2));
+            color: #fff;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.4), inset 0 0 20px rgba(157, 78, 221, 0.1);
+        }
+
+        #start-btn {
+            background: linear-gradient(135deg, #00c853, #00e676);
+            color: #000;
+            border: none;
+            padding: 18px 50px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 900;
+            border-radius: 14px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(0, 200, 83, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        #start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(0, 200, 83, 0.6);
+        }
+
+        #start-btn:hover::before {
+            left: 100%;
+        }
+
+        /* Game Board */
+        .game-container {
+            position: relative;
+            z-index: 10;
+        }
+
+        .game-header {
+            display: flex;
+            width: calc(10 * var(--cell-size) + 80px);
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 0 20px;
+        }
+
+        .team-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .team-label.blue {
+            color: var(--p1-color);
+            text-shadow: 0 0 20px var(--p1-glow);
+        }
+
+        .team-label.pink {
+            color: var(--p2-color);
+            text-shadow: 0 0 20px var(--p2-glow);
+        }
+
+        .score-container {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .score-box {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 72px;
+            font-weight: 900;
+            line-height: 1;
+            transition: all 0.3s;
+        }
+
+        .score-box.flash {
+            animation: scoreFlash 0.5s ease-out;
+        }
+
+        .score-divider {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 40px;
+            color: rgba(255,255,255,0.2);
+            font-weight: 900;
+        }
+
+        .board-wrapper {
+            position: relative;
+            padding: 4px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--p1-color), var(--accent-purple), var(--p2-color));
+            animation: borderGlow 4s ease-in-out infinite;
+        }
+
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(10, var(--cell-size));
+            grid-template-rows: repeat(6, var(--cell-size));
+            gap: var(--led-gap);
+            background: linear-gradient(180deg, #0f0f18 0%, #1a1a28 100%);
+            padding: calc(var(--led-gap) + 10px);
+            border-radius: 16px;
+            position: relative;
+        }
+
+        /* Center Line */
+        #game-grid::before {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            width: 3px;
+            height: 80%;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255,255,255,0.1) 0px,
+                rgba(255,255,255,0.1) 15px,
+                transparent 15px,
+                transparent 30px
+            );
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: rgba(20, 20, 35, 0.8);
+            border-radius: 6px;
+            transition: all 0.15s ease;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.02);
+        }
+
+        .cell:hover {
+            background-color: rgba(40, 40, 60, 0.8);
+        }
+
+        /* LED Elements */
+        .cell.ball {
+            background: radial-gradient(circle at 30% 30%, #ffffaa, var(--ball-color), #cc9900);
+            box-shadow: 
+                0 0 40px var(--ball-glow),
+                0 0 80px var(--ball-glow),
+                inset 0 -10px 20px rgba(0,0,0,0.3),
+                inset 0 10px 20px rgba(255,255,255,0.3);
+            border-radius: 50%;
+            z-index: 10;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        .cell.p1 {
+            background: var(--p1-color) !important;
+            border-radius: 6px;
+        }
+
+        .cell.p2 {
+            background: var(--p2-color) !important;
+            border-radius: 6px;
+        }
+
+        /* Goal Explosion Effect */
+        .goal-effect {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: goalExplosion 0.6s ease-out forwards;
+        }
+
+        .goal-effect.blue {
+            background: radial-gradient(circle, var(--p1-color), transparent);
+        }
+
+        .goal-effect.pink {
+            background: radial-gradient(circle, var(--p2-color), transparent);
+        }
+
+        /* Missed Ball Effect - ลูกบอลที่หลุดไป */
+        .cell.ball-missed {
+            background: radial-gradient(circle at 30% 30%, #ff6666, #ff0000, #880000);
+            box-shadow: 
+                0 0 50px rgba(255, 0, 0, 0.8),
+                0 0 100px rgba(255, 0, 0, 0.5),
+                inset 0 -10px 20px rgba(0,0,0,0.3);
+            border-radius: 50%;
+            z-index: 10;
+            animation: missedBall 0.8s ease-out forwards;
+        }
+
+        @keyframes missedBall {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(0.3); opacity: 0; }
+        }
+
+        /* Goal Zone Glow when missed */
+        .cell.goal-missed-left {
+            background: rgba(255, 0, 0, 0.4) !important;
+            box-shadow: inset 0 0 30px rgba(255, 0, 0, 0.6);
+            animation: goalMissedFlash 0.5s ease-out;
+        }
+
+        .cell.goal-missed-right {
+            background: rgba(255, 0, 0, 0.4) !important;
+            box-shadow: inset 0 0 30px rgba(255, 0, 0, 0.6);
+            animation: goalMissedFlash 0.5s ease-out;
+        }
+
+        @keyframes goalMissedFlash {
+            0%, 100% { background: rgba(255, 0, 0, 0.4); }
+            50% { background: rgba(255, 0, 0, 0.7); }
+        }
+
+        /* Miss Text Popup */
+        .miss-text {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 900;
+            color: #ff4444;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 50;
+            animation: missTextAnim 1.2s ease-out forwards;
+        }
+
+        @keyframes missTextAnim {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            80% { transform: translate(-50%, -80%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; }
+        }
+
+        .controls-info {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+        }
+
+        .control-group {
+            text-align: center;
+        }
+
+        .control-group .label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .control-group .label.blue { color: var(--p1-color); }
+        .control-group .label.pink { color: var(--p2-color); }
+
+        .control-group .keys {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+            color: #666;
+            letter-spacing: 1px;
+        }
+
+        /* Win Screen */
+        .win-panel {
+            text-align: center;
+        }
+
+        .win-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 48px;
+            font-weight: 900;
+            margin: 20px 0;
+            letter-spacing: 4px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .final-score {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 72px;
+            font-weight: 900;
+            margin: 30px 0;
+            letter-spacing: 10px;
+            color: #fff;
+        }
+
+        .play-again-btn {
+            background: linear-gradient(135deg, #333, #444) !important;
+            margin-top: 20px;
+        }
+
+        .play-again-btn:hover {
+            background: linear-gradient(135deg, #444, #555) !important;
+        }
+
+        /* Pause Indicator */
+        .pause-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--ball-color);
+            text-shadow: 0 0 30px var(--ball-glow);
+            z-index: 20;
+            animation: pulse 1s ease-in-out infinite;
+            display: none;
+        }
+
+        .pause-indicator.show {
+            display: block;
+        }
+
+        /* Countdown */
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 120px;
+            font-weight: 900;
+            color: var(--ball-color);
+            text-shadow: 0 0 50px var(--ball-glow);
+            z-index: 30;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .countdown.show {
+            animation: scoreFlash 0.8s ease-out;
+            opacity: 1;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            :root {
+                --cell-size: 50px;
+            }
+            
+            h1 { font-size: 36px; }
+            .panel { width: 90%; padding: 30px; }
+            .score-box { font-size: 48px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="overlay">
+        <div class="panel">
+            <h1>PIXEL PONG</h1>
+            <div class="subtitle">Neon Arcade Edition</div>
+            
+            <div class="config-section">
+                <div class="config-label">Players Mode</div>
+                <div class="btn-group">
+                    <button onclick="setPlayers(2)" id="pl2" class="selected">2 PLAYERS</button>
+                    <button onclick="setPlayers(4)" id="pl4">4 PLAYERS</button>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <div class="config-label">Target Score</div>
+                <div class="btn-group">
+                    <button onclick="setTarget(3)" id="t3">3</button>
+                    <button onclick="setTarget(5)" class="selected" id="t5">5</button>
+                    <button onclick="setTarget(7)" id="t7">7</button>
+                    <button onclick="setTarget(10)" id="t10">10</button>
+                </div>
+            </div>
+
+            <button id="start-btn" onclick="startGame()">⚡ Start Match</button>
+            
+            <div class="controls-info" id="hint-area">
+                <div class="control-group">
+                    <div class="label blue">BLUE TEAM</div>
+                    <div class="keys">W / S</div>
+                </div>
+                <div class="control-group">
+                    <div class="label pink">PINK TEAM</div>
+                    <div class="keys">↑ / ↓</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="win-screen" class="overlay hidden">
+        <div class="panel win-panel">
+            <div class="config-label">🏆 Match Complete 🏆</div>
+            <div id="winner-name" class="win-title">BLUE TEAM WINS</div>
+            <div id="final-score" class="final-score">5 - 2</div>
+            <button onclick="resetToMenu()" id="start-btn" class="play-again-btn">🔄 Play Again</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="game-header">
+            <div class="team-label blue">◀ BLUE</div>
+            <div class="score-container">
+                <div class="score-box" id="score1" style="color: var(--p1-color); text-shadow: 0 0 30px var(--p1-glow);">00</div>
+                <div class="score-divider">:</div>
+                <div class="score-box" id="score2" style="color: var(--p2-color); text-shadow: 0 0 30px var(--p2-glow);">00</div>
+            </div>
+            <div class="team-label pink">PINK ▶</div>
+        </div>
+
+        <div class="board-wrapper">
+            <div id="game-grid">
+                <div class="pause-indicator" id="pause-indicator">PAUSED</div>
+                <div class="countdown" id="countdown"></div>
+            </div>
+        </div>
+
+        <div class="controls-info" id="game-controls">
+            <div class="control-group">
+                <div class="label blue">BLUE TEAM</div>
+                <div class="keys" id="blue-keys">W / S</div>
+            </div>
+            <div class="control-group">
+                <div class="label pink">PINK TEAM</div>
+                <div class="keys" id="pink-keys">↑ / ↓</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const COLS = 10, ROWS = 6;
+        let targetScore = 5, playerCount = 2, scores = [0, 0];
+        let gameInterval, isRunning = false, isPaused = false;
+
+        // Ball position: เริ่มที่ column 4 (กลางสนาม) ไม่ใช่ที่ผนัง
+        let ball = { x: 4, y: 2, vx: 1, vy: 1 };
+        
+        // Paddle positions (row indices)
+        let p1_a = 2, p1_b = 3; // Blue team paddles
+        let p2_a = 2, p2_b = 3; // Pink team paddles
+
+        const grid = document.getElementById('game-grid');
+        const cells = [];
+        
+        // Build Grid
+        for (let i = 0; i < COLS * ROWS; i++) {
+            const div = document.createElement('div');
+            div.className = 'cell';
+            
+            // Mark goal zones
+            const col = i % COLS;
+            if (col === 0) div.classList.add('goal-zone-left');
+            if (col === COLS - 1) div.classList.add('goal-zone-right');
+            
+            grid.appendChild(div);
+            cells.push(div);
+        }
+
+        function setTarget(n) {
+            targetScore = n;
+            document.querySelectorAll('[id^="t"]').forEach(b => b.classList.remove('selected'));
+            document.getElementById('t' + n).classList.add('selected');
+        }
+
+        function setPlayers(n) {
+            playerCount = n;
+            document.querySelectorAll('[id^="pl"]').forEach(b => b.classList.remove('selected'));
+            document.getElementById('pl' + n).classList.add('selected');
+            
+            const blueKeys = document.getElementById('blue-keys');
+            const pinkKeys = document.getElementById('pink-keys');
+            
+            if (n === 4) {
+                blueKeys.textContent = "P1: W/S | P2: R/F";
+                pinkKeys.textContent = "P3: U/J | P4: O/L";
+            } else {
+                blueKeys.textContent = "W / S";
+                pinkKeys.textContent = "↑ / ↓";
+            }
+            
+            // Update hint area
+            const hintArea = document.getElementById('hint-area');
+            hintArea.innerHTML = n === 4 ? `
+                <div class="control-group">
+                    <div class="label blue">BLUE TEAM</div>
+                    <div class="keys">P1: W/S | P2: R/F</div>
+                </div>
+                <div class="control-group">
+                    <div class="label pink">PINK TEAM</div>
+                    <div class="keys">P3: U/J | P4: O/L</div>
+                </div>
+            ` : `
+                <div class="control-group">
+                    <div class="label blue">BLUE TEAM</div>
+                    <div class="keys">W / S</div>
+                </div>
+                <div class="control-group">
+                    <div class="label pink">PINK TEAM</div>
+                    <div class="keys">↑ / ↓</div>
+                </div>
+            `;
+        }
+
+        function render() {
+            cells.forEach((c, i) => {
+                c.className = 'cell';
+            });
+            
+            // Render Paddles - อยู่ที่ column 0 (Blue) และ column 9 (Pink)
+            if (playerCount === 2) {
+                if (p1_a >= 0 && p1_a < ROWS) cells[p1_a * COLS + 0].classList.add('p1');
+                if (p2_a >= 0 && p2_a < ROWS) cells[p2_a * COLS + 9].classList.add('p2');
+            } else {
+                [p1_a, p1_b].forEach(y => { 
+                    if (y >= 0 && y < ROWS) cells[y * COLS + 0].classList.add('p1'); 
+                });
+                [p2_a, p2_b].forEach(y => { 
+                    if (y >= 0 && y < ROWS) cells[y * COLS + 9].classList.add('p2'); 
+                });
+            }
+
+            // Render Ball
+            if (ball.x >= 0 && ball.x < COLS && ball.y >= 0 && ball.y < ROWS) {
+                cells[ball.y * COLS + ball.x].classList.add('ball');
+            }
+        }
+
+        function update() {
+            if (!isRunning || isPaused) return;
+            
+            let nextX = ball.x + ball.vx;
+            let nextY = ball.y + ball.vy;
+
+            // Bounce off top/bottom walls
+            if (nextY < 0) {
+                nextY = 0;
+                ball.vy = 1;
+            } else if (nextY >= ROWS) {
+                nextY = ROWS - 1;
+                ball.vy = -1;
+            }
+
+            // ===== COLLISION DETECTION =====
+            // Detection Zone: column 1 (Blue) และ column 8 (Pink)
+            // ถ้าลูกบอลเข้า Detection Zone และตรงกับ row ของไม้ → ตีกลับทันที
+            // ถ้าไม่ตรง → เสียแต้มทันที (ไม่ต้องรอไปถึง column 0/9)
+            
+            // === LEFT SIDE (Blue Team) ===
+            if (ball.vx === -1 && nextX === 1) {
+                // ลูกบอลเข้า Detection Zone ของ Blue
+                let inDetectZone = (playerCount === 2) 
+                    ? (nextY === p1_a) 
+                    : (nextY === p1_a || nextY === p1_b);
+                
+                if (inDetectZone) {
+                    // อยู่ใน Detection Zone → ตีกลับ!
+                    ball.vx = 1;
+                    ball.x = 1;
+                    ball.y = nextY;
+                    render();
+                    
+                    if (Math.random() > 0.6) {
+                        ball.vy = ball.vy === 0 ? (Math.random() > 0.5 ? 1 : -1) : ball.vy;
+                    }
+                    return;
+                } else {
+                    // ไม่อยู่ใน Detection Zone → เสียแต้มทันที!
+                    ball.x = 1;
+                    ball.y = nextY;
+                    render();
+                    showMissedBall(1, nextY, 'left');
+                    scorePoint(1);
+                    return;
+                }
+            }
+            
+            // === RIGHT SIDE (Pink Team) ===
+            if (ball.vx === 1 && nextX === 8) {
+                // ลูกบอลเข้า Detection Zone ของ Pink
+                let inDetectZone = (playerCount === 2) 
+                    ? (nextY === p2_a) 
+                    : (nextY === p2_a || nextY === p2_b);
+                
+                if (inDetectZone) {
+                    // อยู่ใน Detection Zone → ตีกลับ!
+                    ball.vx = -1;
+                    ball.x = 8;
+                    ball.y = nextY;
+                    render();
+                    
+                    if (Math.random() > 0.6) {
+                        ball.vy = ball.vy === 0 ? (Math.random() > 0.5 ? 1 : -1) : ball.vy;
+                    }
+                    return;
+                } else {
+                    // ไม่อยู่ใน Detection Zone → เสียแต้มทันที!
+                    ball.x = 8;
+                    ball.y = nextY;
+                    render();
+                    showMissedBall(8, nextY, 'right');
+                    scorePoint(0);
+                    return;
+                }
+            }
+
+            ball.x = nextX;
+            ball.y = nextY;
+            render();
+        }
+
+        // แสดง effect เมื่อลูกบอลหลุดไป
+        function showMissedBall(col, row, side) {
+            const cellIndex = row * COLS + col;
+            const cell = cells[cellIndex];
+            
+            // เปลี่ยนลูกบอลเป็นสีแดง (missed)
+            cell.classList.remove('ball');
+            cell.classList.add('ball-missed');
+            
+            // Flash goal zone สีแดง
+            cells.forEach((c, i) => {
+                const cellCol = i % COLS;
+                if (side === 'left' && cellCol === 0) {
+                    c.classList.add('goal-missed-left');
+                }
+                if (side === 'right' && cellCol === COLS - 1) {
+                    c.classList.add('goal-missed-right');
+                }
+            });
+            
+            // แสดงข้อความ MISS!
+            const missText = document.createElement('div');
+            missText.className = 'miss-text';
+            missText.textContent = 'MISS!';
+            
+            // คำนวณตำแหน่ง
+            const gridRect = grid.getBoundingClientRect();
+            const cellSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+            const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--led-gap'));
+            
+            const xPos = col * (cellSize + gap) + cellSize / 2 + 16;
+            const yPos = row * (cellSize + gap) + cellSize / 2 + 16;
+            
+            missText.style.left = xPos + 'px';
+            missText.style.top = yPos + 'px';
+            
+            grid.appendChild(missText);
+            
+            // ลบ effects หลังจาก animation เสร็จ
+            setTimeout(() => {
+                cell.classList.remove('ball-missed');
+                cells.forEach(c => {
+                    c.classList.remove('goal-missed-left', 'goal-missed-right');
+                });
+                missText.remove();
+            }, 1000);
+        }
+
+        function scorePoint(winner) {
+            scores[winner]++;
+            
+            // Update score display with animation
+            const scoreEl = document.getElementById(winner === 0 ? 'score1' : 'score2');
+            scoreEl.innerText = scores[winner].toString().padStart(2, '0');
+            scoreEl.classList.add('flash');
+            setTimeout(() => scoreEl.classList.remove('flash'), 500);
+            
+            // Create goal explosion effect
+            createGoalEffect(winner);
+            
+            if (scores[winner] >= targetScore) {
+                endGame(winner);
+            } else {
+                // Short delay before resetting ball
+                isRunning = false;
+                setTimeout(() => {
+                    resetBall(winner);
+                    isRunning = true;
+                }, 800);
+            }
+        }
+
+        function createGoalEffect(winner) {
+            const effect = document.createElement('div');
+            effect.className = `goal-effect ${winner === 0 ? 'blue' : 'pink'}`;
+            
+            // Position at the goal that was scored
+            const goalX = winner === 0 ? 'calc(10% - 50px)' : 'calc(90% - 50px)';
+            effect.style.left = goalX;
+            effect.style.top = '50%';
+            effect.style.transform = 'translate(-50%, -50%)';
+            
+            grid.appendChild(effect);
+            setTimeout(() => effect.remove(), 600);
+        }
+
+        function resetBall(loser) {
+            // ลูกบอลเริ่มที่กลางสนาม (column 4-5) และวิ่งไปหาทีมที่แพ้
+            ball = { 
+                x: 4 + Math.floor(Math.random() * 2), 
+                y: Math.floor(Math.random() * ROWS), 
+                vx: loser === 0 ? -1 : 1, // วิ่งไปหาทีมที่แพ้
+                vy: Math.random() > 0.5 ? 1 : -1
+            };
+            render();
+        }
+
+        function showCountdown(callback) {
+            const countdownEl = document.getElementById('countdown');
+            let count = 3;
+            
+            function tick() {
+                if (count > 0) {
+                    countdownEl.textContent = count;
+                    countdownEl.classList.add('show');
+                    setTimeout(() => countdownEl.classList.remove('show'), 700);
+                    count--;
+                    setTimeout(tick, 800);
+                } else {
+                    countdownEl.textContent = 'GO!';
+                    countdownEl.classList.add('show');
+                    setTimeout(() => {
+                        countdownEl.classList.remove('show');
+                        callback();
+                    }, 500);
+                }
+            }
+            tick();
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            scores = [0, 0];
+            document.getElementById('score1').innerText = "00";
+            document.getElementById('score2').innerText = "00";
+            
+            // Reset paddle positions
+            p1_a = 2; p1_b = 3; 
+            p2_a = 2; p2_b = 3;
+            
+            // Reset ball to center
+            ball = { x: 4, y: 2, vx: 1, vy: 1 };
+            render();
+            
+            // Start with countdown
+            showCountdown(() => {
+                resetBall(Math.random() > 0.5 ? 0 : 1);
+                isRunning = true;
+                gameInterval = setInterval(update, 400); // เร็วขึ้นจาก 450 เป็น 400
+            });
+        }
+
+        function endGame(winner) {
+            isRunning = false;
+            clearInterval(gameInterval);
+            
+            const winScreen = document.getElementById('win-screen');
+            const winName = document.getElementById('winner-name');
+            
+            winName.innerText = winner === 0 ? "🎉 BLUE TEAM WINS! 🎉" : "🎉 PINK TEAM WINS! 🎉";
+            winName.style.color = winner === 0 ? "var(--p1-color)" : "var(--p2-color)";
+            winName.style.textShadow = winner === 0 
+                ? "0 0 40px var(--p1-glow)" 
+                : "0 0 40px var(--p2-glow)";
+            
+            document.getElementById('final-score').innerText = `${scores[0]} - ${scores[1]}`;
+            
+            setTimeout(() => {
+                winScreen.classList.remove('hidden');
+            }, 500);
+        }
+
+        function resetToMenu() {
+            document.getElementById('win-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            
+            // Reset everything
+            ball = { x: 4, y: 2, vx: 1, vy: 1 };
+            p1_a = 2; p1_b = 3;
+            p2_a = 2; p2_b = 3;
+            render();
+        }
+
+        // Pause toggle
+        function togglePause() {
+            if (!isRunning) return;
+            isPaused = !isPaused;
+            document.getElementById('pause-indicator').classList.toggle('show', isPaused);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            // Space to pause
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePause();
+                return;
+            }
+            
+            if (!isRunning || isPaused) return;
+            
+            const key = e.key.toLowerCase();
+            
+            // Blue Team (Left side)
+            if (key === 'w' && p1_a > 0) p1_a--;
+            if (key === 's' && p1_a < ROWS - 1) p1_a++;
+            
+            if (playerCount === 4) {
+                // Second Blue player
+                if (key === 'r' && p1_b > 0) p1_b--;
+                if (key === 'f' && p1_b < ROWS - 1) p1_b++;
+                
+                // Pink Team (4 players mode)
+                if (key === 'u' && p2_a > 0) p2_a--;
+                if (key === 'j' && p2_a < ROWS - 1) p2_a++;
+                if (key === 'o' && p2_b > 0) p2_b--;
+                if (key === 'l' && p2_b < ROWS - 1) p2_b++;
+            } else {
+                // Pink Team (2 players mode - Arrow keys)
+                if (e.key === 'ArrowUp' && p2_a > 0) { e.preventDefault(); p2_a--; }
+                if (e.key === 'ArrowDown' && p2_a < ROWS - 1) { e.preventDefault(); p2_a++; }
+            }
+            
+            render();
+        });
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>

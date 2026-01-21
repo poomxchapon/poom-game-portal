@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ice Land - Interactive Floor Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1829 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 1400px;
+            padding: 20px;
+        }
+
+        #gameTitle {
+            text-align: center;
+            font-size: 4em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00d4ff, #0099ff, #00ffcc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+            animation: titleGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        #turnIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 500;
+            background: rgba(10, 14, 39, 0.95);
+            padding: 60px 100px;
+            border-radius: 30px;
+            border: 4px solid;
+            box-shadow: 0 0 80px currentColor;
+            text-align: center;
+            animation: turnPulse 1s ease-in-out infinite;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes turnPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        #turnIndicator .turn-label {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        #turnIndicator .turn-player {
+            font-size: 5em;
+            font-weight: 900;
+            text-shadow: 0 0 30px currentColor;
+            margin-bottom: 10px;
+        }
+
+        #turnIndicator .turn-controls {
+            font-size: 1.8em;
+            font-weight: 600;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        #gameBoard {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 4px;
+            background: rgba(10, 20, 40, 0.8);
+            padding: 10px;
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.3);
+            margin: 0 auto;
+            max-width: 800px;
+            aspect-ratio: 6/10;
+        }
+
+        .ice-tile {
+            position: relative;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099ff 50%, #00ccff 100%);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 
+                inset 0 0 20px rgba(255, 255, 255, 0.3),
+                0 0 15px rgba(0, 212, 255, 0.5);
+            animation: icePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes icePulse {
+            0%, 100% { box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.3), 0 0 15px rgba(0, 212, 255, 0.5); }
+            50% { box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.5), 0 0 25px rgba(0, 212, 255, 0.8); }
+        }
+
+        .ice-tile::before {
+            content: '';
+            position: absolute;
+            top: 5%;
+            left: 5%;
+            right: 5%;
+            bottom: 5%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
+            border-radius: 6px;
+            pointer-events: none;
+        }
+
+        .ice-tile:hover {
+            transform: scale(1.05);
+            box-shadow: 
+                inset 0 0 30px rgba(255, 255, 255, 0.5),
+                0 0 30px rgba(0, 212, 255, 1);
+        }
+
+        .ice-tile.broken {
+            background: linear-gradient(135deg, #001a33 0%, #002244 50%, #001133 100%);
+            box-shadow: inset 0 0 10px rgba(0, 50, 100, 0.5);
+            animation: breakEffect 0.5s ease-out;
+            cursor: not-allowed;
+        }
+
+        .ice-tile.stepping {
+            background: linear-gradient(135deg, #0088cc 0%, #0066aa 50%, #0099cc 100%);
+            box-shadow: 
+                inset 0 0 15px rgba(255, 255, 255, 0.2),
+                0 0 10px rgba(0, 150, 200, 0.4);
+            animation: steppingPulse 0.8s ease-in-out infinite;
+        }
+
+        @keyframes steppingPulse {
+            0%, 100% { 
+                opacity: 0.7;
+                box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.2), 0 0 10px rgba(0, 150, 200, 0.4);
+            }
+            50% { 
+                opacity: 0.5;
+                box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1), 0 0 5px rgba(0, 150, 200, 0.2);
+            }
+        }
+
+        .ice-tile.stepping::before {
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        }
+
+        @keyframes breakEffect {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1) rotate(5deg);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .ice-tile.broken::before {
+            background: none;
+        }
+
+        .player {
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            top: 20%;
+            left: 20%;
+            box-shadow: 0 0 20px currentColor;
+            z-index: 10;
+            animation: playerFloat 2s ease-in-out infinite;
+        }
+
+        @keyframes playerFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        @keyframes jumpEffect {
+            0% { transform: scale(0.5) translateY(-30px); opacity: 0.5; }
+            50% { transform: scale(1.2) translateY(-10px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .player1 { background: radial-gradient(circle, #ff0080, #ff0040); }
+        .player2 { background: radial-gradient(circle, #00ff80, #00cc60); }
+        .player3 { background: radial-gradient(circle, #ffff00, #ffcc00); }
+        .player4 { background: radial-gradient(circle, #ff8800, #ff6600); }
+
+        #gameInfo {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .player-info {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 15px 30px;
+            border-radius: 15px;
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            min-width: 150px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+        }
+
+        .player-info.eliminated {
+            opacity: 0.4;
+            border-color: #ff0040;
+        }
+
+        .player-controls {
+            font-size: 0.8em;
+            color: #00d4ff;
+            margin-top: 5px;
+        }
+
+        .player-name {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .player-status {
+            font-size: 0.9em;
+            color: #00ffcc;
+        }
+
+        #controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1em;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 30px rgba(0, 212, 255, 0.8);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        #startScreen h1 {
+            font-size: 5em;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00d4ff, #00ffcc, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: titleFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes titleFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .player-select {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .player-option {
+            padding: 15px 30px;
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2em;
+        }
+
+        .player-option:hover {
+            background: rgba(0, 212, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .player-option.selected {
+            background: rgba(0, 255, 128, 0.3);
+            border-color: #00ff80;
+            box-shadow: 0 0 30px rgba(0, 255, 128, 0.5);
+        }
+
+        #startButton {
+            font-size: 1.5em;
+            padding: 20px 60px;
+            animation: buttonPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes buttonPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(0, 212, 255, 1); }
+        }
+
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        #gameOver h2 {
+            font-size: 4em;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: winnerGlow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes winnerGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.5); }
+        }
+
+        #winnerName {
+            font-size: 3em;
+            margin-bottom: 40px;
+            color: #00ffcc;
+        }
+
+        .particle {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: #00d4ff;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 999;
+            box-shadow: 0 0 10px #00d4ff;
+        }
+
+        @media (max-width: 768px) {
+            #gameTitle { font-size: 2.5em; }
+            #startScreen h1 { font-size: 3em; }
+            .player-select { flex-direction: column; }
+        }
+
+        @media (max-width: 480px) {
+            #gameTitle { font-size: 2em; }
+            #startScreen h1 { font-size: 2.5em; }
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>❄️ ICE LAND ❄️</h1>
+        <div style="margin-bottom: 30px; text-align: center;">
+            <h3>เลือกจำนวนผู้เล่น</h3>
+            <div class="player-select" id="playerSelect">
+                <div class="player-option" data-players="2">2 Players</div>
+                <div class="player-option selected" data-players="3">3 Players</div>
+                <div class="player-option" data-players="4">4 Players</div>
+            </div>
+        </div>
+        <button id="startButton">เริ่มเกม</button>
+        <div style="margin-top: 30px; text-align: center; max-width: 700px; line-height: 1.8;">
+            <p><strong>🎮 การควบคุม Player 1:</strong></p>
+            <p><strong>WASD</strong> หรือ <strong>ลูกศร ↑↓←→</strong> = เดิน</p>
+            <p><strong>SPACE</strong> = กระโดดข้าม 2 ช่องตามทิศทางล่าสุด</p>
+            <p>❄️ เดินบนน้ำแข็ง - น้ำแข็งจะค่อย ๆ ดับใน 1.5 วินาที!</p>
+            <p>🤖 คู่แข่งเป็น AI Bot - วิ่งแข่งกัน!</p>
+            <p>💀 เหยียบน้ำแข็งที่แตกแล้ว = ตกน้ำ = แพ้!</p>
+            <p>🏆 อยู่รอดคนสุดท้ายชนะ!</p>
+        </div>
+    </div>
+
+    <div id="gameOver">
+        <h2>🏆 WINNER! 🏆</h2>
+        <div id="winnerName"></div>
+        <button onclick="location.reload()">เล่นอีกครั้ง</button>
+    </div>
+
+    <div id="gameContainer">
+        <div id="controls">
+            <button onclick="location.reload()">รีเซ็ตเกม</button>
+        </div>
+        
+        <!-- Turn Indicator -->
+        <div id="turnIndicator" style="display: none;">
+            <div class="turn-label">เทิร์นของ</div>
+            <div class="turn-player" id="turnPlayerName">Player 1</div>
+            <div class="turn-controls" id="turnPlayerControls">WASD</div>
+        </div>
+        
+        <h1 id="gameTitle">❄️ ICE LAND ❄️</h1>
+        
+        <div id="gameBoard"></div>
+        
+        <div id="gameInfo"></div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const GRID_WIDTH = 6;
+        const GRID_HEIGHT = 10;
+        let numPlayers = 3;
+        let gameStarted = false;
+        let botInterval = null;
+
+        // Game State
+        const gameState = {
+            tiles: [],
+            players: [],
+            activePlayers: []
+        };
+
+        // Player Colors
+        const playerColors = [
+            { name: 'Player 1', color: '#ff0080', class: 'player1' },
+            { name: 'Bot 2', color: '#00ff80', class: 'player2' },
+            { name: 'Bot 3', color: '#ffff00', class: 'player3' },
+            { name: 'Bot 4', color: '#ff8800', class: 'player4' }
+        ];
+
+        // Keyboard Controls Configuration (Player 1 only)
+        const keyControls = {
+            up: ['w', 'W', 'ArrowUp'],
+            down: ['s', 'S', 'ArrowDown'],
+            left: ['a', 'A', 'ArrowLeft'],
+            right: ['d', 'D', 'ArrowRight'],
+            jump: [' ', 'Spacebar'] // Space bar for jump
+        };
+
+        // Initialize Game Board
+        function initBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            gameState.tiles = [];
+
+            for (let i = 0; i < GRID_HEIGHT * GRID_WIDTH; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'ice-tile';
+                tile.dataset.index = i;
+                board.appendChild(tile);
+                gameState.tiles.push({ 
+                    element: tile, 
+                    broken: false, 
+                    player: null,
+                    breakTimer: null // Timer for delayed break
+                });
+            }
+        }
+
+        // AI Bot Logic
+        function botMove(playerId) {
+            const player = gameState.players[playerId];
+            if (!player.active || !gameStarted) return;
+
+            const currentPos = player.position;
+            const row = Math.floor(currentPos / GRID_WIDTH);
+            const col = currentPos % GRID_WIDTH;
+
+            // Get all valid moves
+            const validMoves = [];
+            const validJumps = [];
+
+            // Check adjacent tiles (walk)
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (newRow >= 0 && newRow < GRID_HEIGHT && 
+                        newCol >= 0 && newCol < GRID_WIDTH) {
+                        const newIndex = newRow * GRID_WIDTH + newCol;
+                        if (!gameState.tiles[newIndex].broken && !gameState.tiles[newIndex].breakTimer) {
+                            validMoves.push(newIndex);
+                        }
+                    }
+                }
+            }
+
+            // Check jump positions (2 tiles away)
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) continue; // Skip walk range
+                    if (Math.abs(dr) > 2 || Math.abs(dc) > 2) continue; // Max jump distance
+                    
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (newRow >= 0 && newRow < GRID_HEIGHT && 
+                        newCol >= 0 && newCol < GRID_WIDTH) {
+                        const newIndex = newRow * GRID_WIDTH + newCol;
+                        if (!gameState.tiles[newIndex].broken && !gameState.tiles[newIndex].breakTimer) {
+                            validJumps.push(newIndex);
+                        }
+                    }
+                }
+            }
+
+            // AI Strategy: Prefer fresh tiles, sometimes jump
+            let targetIndex = null;
+            const shouldJump = Math.random() < 0.3 && validJumps.length > 0; // 30% chance to jump
+
+            if (shouldJump) {
+                targetIndex = validJumps[Math.floor(Math.random() * validJumps.length)];
+                jumpPlayer(playerId, targetIndex);
+            } else if (validMoves.length > 0) {
+                targetIndex = validMoves[Math.floor(Math.random() * validMoves.length)];
+                movePlayer(playerId, targetIndex);
+                scheduleBreakTile(targetIndex);
+            } else if (validJumps.length > 0) {
+                // No walk moves, try jump
+                targetIndex = validJumps[Math.floor(Math.random() * validJumps.length)];
+                jumpPlayer(playerId, targetIndex);
+            } else {
+                // No moves available
+                eliminatePlayer(playerId);
+            }
+
+            checkWinCondition();
+        }
+
+        // Start Bot AI
+        function startBotAI() {
+            if (botInterval) clearInterval(botInterval);
+            
+            botInterval = setInterval(() => {
+                if (!gameStarted) return;
+                
+                // Bots move with random delays (more realistic)
+                gameState.players.forEach((player, i) => {
+                    if (i === 0) return; // Skip Player 1
+                    if (!player.active) return;
+                    
+                    // Random delay for each bot
+                    setTimeout(() => botMove(i), Math.random() * 300);
+                });
+            }, 800); // Bot moves every 800ms
+        }
+
+        // Keyboard Event Listener - Player 1 only
+        document.addEventListener('keydown', (e) => {
+            if (!gameStarted) return;
+            
+            const player = gameState.players[0]; // Player 1 only
+            if (!player.active) return;
+
+            let direction = null;
+            let isJump = false;
+
+            // Check for jump
+            if (keyControls.jump.includes(e.key)) {
+                isJump = true;
+                e.preventDefault();
+            }
+            // Check for movement
+            else if (keyControls.up.includes(e.key)) {
+                direction = 'up';
+                e.preventDefault();
+            } else if (keyControls.down.includes(e.key)) {
+                direction = 'down';
+                e.preventDefault();
+            } else if (keyControls.left.includes(e.key)) {
+                direction = 'left';
+                e.preventDefault();
+            } else if (keyControls.right.includes(e.key)) {
+                direction = 'right';
+                e.preventDefault();
+            } else {
+                return;
+            }
+
+            if (isJump) {
+                // Jump mode - show possible jump targets or execute last direction jump
+                if (!player.lastDirection) {
+                    showMessage('เลือกทิศทางก่อนกระโดด!');
+                    return;
+                }
+                
+                const currentRow = Math.floor(player.position / GRID_WIDTH);
+                const currentCol = player.position % GRID_WIDTH;
+                let newRow = currentRow;
+                let newCol = currentCol;
+
+                // Jump 2 tiles in last direction
+                if (player.lastDirection === 'up') newRow = Math.max(0, newRow - 2);
+                else if (player.lastDirection === 'down') newRow = Math.min(GRID_HEIGHT - 1, newRow + 2);
+                else if (player.lastDirection === 'left') newCol = Math.max(0, newCol - 2);
+                else if (player.lastDirection === 'right') newCol = Math.min(GRID_WIDTH - 1, newCol + 2);
+
+                const newIndex = newRow * GRID_WIDTH + newCol;
+
+                if (gameState.tiles[newIndex].broken) {
+                    eliminatePlayer(0);
+                    checkWinCondition();
+                    return;
+                }
+
+                jumpPlayer(0, newIndex);
+                checkWinCondition();
+            } else if (direction) {
+                // Regular movement
+                player.lastDirection = direction; // Remember last direction for jump
+
+                let newRow = Math.floor(player.position / GRID_WIDTH);
+                let newCol = player.position % GRID_WIDTH;
+
+                if (direction === 'up') newRow = Math.max(0, newRow - 1);
+                else if (direction === 'down') newRow = Math.min(GRID_HEIGHT - 1, newRow + 1);
+                else if (direction === 'left') newCol = Math.max(0, newCol - 1);
+                else if (direction === 'right') newCol = Math.min(GRID_WIDTH - 1, newCol + 1);
+
+                const newIndex = newRow * GRID_WIDTH + newCol;
+
+                if (!isValidMove(player.position, newIndex)) {
+                    return;
+                }
+
+                if (gameState.tiles[newIndex].broken) {
+                    eliminatePlayer(0);
+                    checkWinCondition();
+                    return;
+                }
+
+                movePlayer(0, newIndex);
+                scheduleBreakTile(newIndex);
+
+                if (!hasValidMoves(0)) {
+                    eliminatePlayer(0);
+                }
+
+                checkWinCondition();
+            }
+        });
+
+        // Initialize Players
+        function initPlayers() {
+            gameState.players = [];
+            gameState.activePlayers = [];
+            
+            // Starting positions for players (corners and center)
+            const startPositions = [0, 5, 54, 59];
+            
+            for (let i = 0; i < numPlayers; i++) {
+                const position = startPositions[i];
+                const player = {
+                    id: i,
+                    name: playerColors[i].name,
+                    color: playerColors[i].color,
+                    class: playerColors[i].class,
+                    position: position,
+                    active: true,
+                    lastDirection: null // For jump direction
+                };
+                
+                gameState.players.push(player);
+                gameState.activePlayers.push(i);
+                
+                // Add player marker to tile
+                const playerDiv = document.createElement('div');
+                playerDiv.className = `player ${player.class}`;
+                playerDiv.dataset.player = i;
+                gameState.tiles[position].element.appendChild(playerDiv);
+                gameState.tiles[position].player = i;
+                
+                // Add stepping class to starting position
+                gameState.tiles[position].element.classList.add('stepping');
+            }
+            
+            updatePlayerInfo();
+            
+            // Start Bot AI for players 2-4
+            if (numPlayers > 1) {
+                startBotAI();
+            }
+        }
+
+        // Schedule tile to break after delay (ไฟค่อยๆ ดับ)
+        function scheduleBreakTile(index) {
+            const tile = gameState.tiles[index];
+            if (tile.broken || tile.breakTimer) return;
+
+            // Set timer to break after 1.5 seconds
+            tile.breakTimer = setTimeout(() => {
+                breakTile(index);
+                tile.breakTimer = null;
+            }, 1500); // 1.5 seconds delay
+        }
+
+        // Jump Player (no breaking tile between)
+        function jumpPlayer(playerId, newIndex) {
+            const player = gameState.players[playerId];
+            const oldIndex = player.position;
+
+            // Remove stepping class from old position
+            if (oldIndex !== null) {
+                const oldPlayerDiv = gameState.tiles[oldIndex].element.querySelector(`[data-player="${playerId}"]`);
+                if (oldPlayerDiv) oldPlayerDiv.remove();
+                if (gameState.tiles[oldIndex].player === playerId) {
+                    gameState.tiles[oldIndex].player = null;
+                }
+                gameState.tiles[oldIndex].element.classList.remove('stepping');
+            }
+
+            // Add to new position
+            const playerDiv = document.createElement('div');
+            playerDiv.className = `player ${player.class}`;
+            playerDiv.dataset.player = playerId;
+            playerDiv.style.animation = 'jumpEffect 0.5s ease-out'; // Jump animation
+            gameState.tiles[newIndex].element.appendChild(playerDiv);
+            gameState.tiles[newIndex].player = playerId;
+            player.position = newIndex;
+
+            // Add stepping class to new position
+            if (!gameState.tiles[newIndex].broken) {
+                gameState.tiles[newIndex].element.classList.add('stepping');
+            }
+
+            // Schedule break for jump landing
+            scheduleBreakTile(newIndex);
+
+            createParticles(newIndex);
+            
+            // Check if player has any valid moves left
+            if (!hasValidMoves(playerId)) {
+                eliminatePlayer(playerId);
+            }
+        }
+
+        // Check if move is valid (adjacent tiles)
+        function isValidMove(fromIndex, toIndex) {
+            const fromRow = Math.floor(fromIndex / GRID_WIDTH);
+            const fromCol = fromIndex % GRID_WIDTH;
+            const toRow = Math.floor(toIndex / GRID_WIDTH);
+            const toCol = toIndex % GRID_WIDTH;
+
+            const rowDiff = Math.abs(fromRow - toRow);
+            const colDiff = Math.abs(fromCol - toCol);
+
+            // Same tile or adjacent (including diagonal)
+            return (rowDiff <= 1 && colDiff <= 1);
+        }
+
+        // Move Player
+        function movePlayer(playerId, newIndex) {
+            const player = gameState.players[playerId];
+            const oldIndex = player.position;
+
+            // Remove stepping class from old position
+            if (oldIndex !== null) {
+                const oldPlayerDiv = gameState.tiles[oldIndex].element.querySelector(`[data-player="${playerId}"]`);
+                if (oldPlayerDiv) oldPlayerDiv.remove();
+                if (gameState.tiles[oldIndex].player === playerId) {
+                    gameState.tiles[oldIndex].player = null;
+                }
+                // Remove stepping class
+                gameState.tiles[oldIndex].element.classList.remove('stepping');
+            }
+
+            // Add to new position
+            const playerDiv = document.createElement('div');
+            playerDiv.className = `player ${player.class}`;
+            playerDiv.dataset.player = playerId;
+            gameState.tiles[newIndex].element.appendChild(playerDiv);
+            gameState.tiles[newIndex].player = playerId;
+            player.position = newIndex;
+
+            // Add stepping class to new position
+            if (!gameState.tiles[newIndex].broken) {
+                gameState.tiles[newIndex].element.classList.add('stepping');
+            }
+
+            createParticles(newIndex);
+        }
+
+        // Break Tile
+        function breakTile(index) {
+            const tile = gameState.tiles[index];
+            if (!tile.broken) {
+                tile.broken = true;
+                tile.element.classList.remove('stepping'); // Remove stepping class first
+                tile.element.classList.add('broken');
+                createBreakEffect(index);
+            }
+        }
+
+        // Check if player has valid moves
+        function hasValidMoves(playerId) {
+            const player = gameState.players[playerId];
+            const position = player.position;
+            
+            if (position === null) return false;
+
+            const row = Math.floor(position / GRID_WIDTH);
+            const col = position % GRID_WIDTH;
+
+            // Check all adjacent tiles
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const newRow = row + dr;
+                    const newCol = col + dc;
+                    
+                    if (newRow >= 0 && newRow < GRID_HEIGHT && 
+                        newCol >= 0 && newCol < GRID_WIDTH) {
+                        const newIndex = newRow * GRID_WIDTH + newCol;
+                        if (!gameState.tiles[newIndex].broken) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+
+        // Eliminate Player
+        function eliminatePlayer(playerId) {
+            const player = gameState.players[playerId];
+            player.active = false;
+            
+            const index = gameState.activePlayers.indexOf(playerId);
+            if (index > -1) {
+                gameState.activePlayers.splice(index, 1);
+            }
+
+            // Remove player marker
+            if (player.position !== null) {
+                const playerDiv = gameState.tiles[player.position].element.querySelector(`[data-player="${playerId}"]`);
+                if (playerDiv) playerDiv.remove();
+            }
+
+            showMessage(`${player.name} ตกน้ำแล้ว!`);
+            updatePlayerInfo();
+        }
+
+        // Check Win Condition
+        function checkWinCondition() {
+            if (gameState.activePlayers.length === 1) {
+                const winnerId = gameState.activePlayers[0];
+                const winner = gameState.players[winnerId];
+                showWinner(winner);
+            }
+        }
+
+        // Show Winner
+        function showWinner(winner) {
+            gameStarted = false;
+            if (botInterval) clearInterval(botInterval); // Stop bots
+            document.getElementById('winnerName').textContent = winner.name;
+            document.getElementById('gameOver').style.display = 'flex';
+            createConfetti();
+        }
+
+        // Update Player Info
+        function updatePlayerInfo() {
+            const infoDiv = document.getElementById('gameInfo');
+            infoDiv.innerHTML = '';
+
+            gameState.players.forEach((player, i) => {
+                const playerInfo = document.createElement('div');
+                playerInfo.className = 'player-info';
+                
+                if (!player.active) {
+                    playerInfo.classList.add('eliminated');
+                }
+
+                // Control info
+                let controlText = '';
+                if (i === 0) {
+                    controlText = 'WASD / ลูกศร + SPACE';
+                } else {
+                    controlText = '🤖 AI Bot';
+                }
+
+                playerInfo.innerHTML = `
+                    <div class="player-name" style="color: ${player.color}">${player.name}</div>
+                    <div class="player-controls">${controlText}</div>
+                    <div class="player-status">${player.active ? '✅ กำลังเล่น' : '❌ แพ้แล้ว'}</div>
+                `;
+                infoDiv.appendChild(playerInfo);
+            });
+        }
+
+        // Create Break Effect
+        function createBreakEffect(index) {
+            const tile = gameState.tiles[index].element;
+            const rect = tile.getBoundingClientRect();
+            
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    particle.style.left = rect.left + rect.width / 2 + 'px';
+                    particle.style.top = rect.top + rect.height / 2 + 'px';
+                    document.body.appendChild(particle);
+
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 50 + Math.random() * 50;
+                    const tx = Math.cos(angle) * distance;
+                    const ty = Math.sin(angle) * distance;
+
+                    particle.animate([
+                        { transform: 'translate(0, 0)', opacity: 1 },
+                        { transform: `translate(${tx}px, ${ty}px)`, opacity: 0 }
+                    ], {
+                        duration: 500 + Math.random() * 500,
+                        easing: 'ease-out'
+                    }).onfinish = () => particle.remove();
+                }, i * 20);
+            }
+        }
+
+        // Create Particles
+        function createParticles(index) {
+            const tile = gameState.tiles[index].element;
+            const rect = tile.getBoundingClientRect();
+            
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = rect.left + rect.width / 2 + 'px';
+                particle.style.top = rect.top + rect.height / 2 + 'px';
+                particle.style.background = '#00ffcc';
+                document.body.appendChild(particle);
+
+                const angle = (Math.PI * 2 * i) / 8;
+                const distance = 30;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+
+                particle.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], {
+                    duration: 400,
+                    easing: 'ease-out'
+                }).onfinish = () => particle.remove();
+            }
+        }
+
+        // Create Confetti
+        function createConfetti() {
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'particle';
+                    confetti.style.left = Math.random() * window.innerWidth + 'px';
+                    confetti.style.top = '-10px';
+                    confetti.style.background = ['#ffd700', '#00ffcc', '#ff0080', '#00d4ff'][Math.floor(Math.random() * 4)];
+                    document.body.appendChild(confetti);
+
+                    confetti.animate([
+                        { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
+                        { transform: `translateY(${window.innerHeight}px) rotate(${Math.random() * 720}deg)`, opacity: 0.5 }
+                    ], {
+                        duration: 2000 + Math.random() * 2000,
+                        easing: 'ease-in'
+                    }).onfinish = () => confetti.remove();
+                }, i * 30);
+            }
+        }
+
+        // Show Message
+        function showMessage(text) {
+            const msg = document.createElement('div');
+            msg.textContent = text;
+            msg.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 212, 255, 0.9);
+                padding: 20px 40px;
+                border-radius: 15px;
+                font-size: 1.5em;
+                font-weight: bold;
+                z-index: 2000;
+                box-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+            `;
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 2000);
+        }
+
+        // Start Screen Event Listeners
+        document.querySelectorAll('.player-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.player-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                numPlayers = parseInt(this.dataset.players);
+            });
+        });
+
+        document.getElementById('startButton').addEventListener('click', function() {
+            document.getElementById('startScreen').style.display = 'none';
+            initBoard();
+            initPlayers();
+            gameStarted = true;
+        });
+
+        // Initialize
+        initBoard();
+    </script>
+</body>
+</html>
+

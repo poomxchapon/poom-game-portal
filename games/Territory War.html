@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Territory War - Cyberpunk Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
+            color: #00ff9f;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .game-container {
+            text-align: center;
+            position: relative;
+            display: none;
+        }
+
+        .game-container.active {
+            display: block;
+        }
+
+        .game-header {
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(0, 255, 159, 0.8);
+        }
+
+        .game-title {
+            font-size: 48px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #ff0055, #00d4ff, #ff0055);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-shift 3s linear infinite;
+        }
+
+        @keyframes gradient-shift {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .score-container {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            gap: 40px;
+        }
+
+        .score-box {
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: 2px solid;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            min-width: 200px;
+            box-shadow: 0 0 30px;
+            transition: all 0.3s ease;
+        }
+
+        .score-box:hover {
+            transform: scale(1.05);
+        }
+
+        .player1-score {
+            border-color: #ff0055;
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.6);
+        }
+
+        .player2-score {
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
+        }
+
+        .player-name {
+            font-size: 18px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .player1-name { color: #ff0055; }
+        .player2-name { color: #00d4ff; }
+
+        .score-value {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .timer {
+            font-size: 32px;
+            margin-bottom: 20px;
+            padding: 10px 30px;
+            background: rgba(255, 0, 85, 0.2);
+            border: 2px solid #ff0055;
+            border-radius: 10px;
+            display: inline-block;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 85, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(255, 0, 85, 0.8); }
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 60px);
+            grid-template-rows: repeat(6, 60px);
+            gap: 3px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 15px;
+            border: 3px solid #00ff9f;
+            box-shadow: 0 0 50px rgba(0, 255, 159, 0.4);
+        }
+
+        .cell {
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cell::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s ease, height 0.3s ease;
+        }
+
+        .cell:hover::before {
+            width: 100%;
+            height: 100%;
+        }
+
+        .player1-cell {
+            background: linear-gradient(135deg, #ff0055 0%, #cc0044 100%);
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+            border-color: #ff0055;
+        }
+
+        .player2-cell {
+            background: linear-gradient(135deg, #00d4ff 0%, #0088cc 100%);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+            border-color: #00d4ff;
+        }
+
+        .neutral-zone {
+            background: linear-gradient(135deg, #333 0%, #1a1a1a 100%);
+            border: 2px solid #666;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .player-position {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 3px solid #fff;
+            z-index: 10;
+            animation: player-glow 1s infinite alternate;
+        }
+
+        @keyframes player-glow {
+            from { box-shadow: 0 0 20px; }
+            to { box-shadow: 0 0 40px; }
+        }
+
+        .player1-position {
+            background: radial-gradient(circle, #ff0055 0%, #cc0044 100%);
+            box-shadow: 0 0 30px rgba(255, 0, 85, 1);
+        }
+
+        .player2-position {
+            background: radial-gradient(circle, #00d4ff 0%, #0088cc 100%);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 1);
+        }
+
+        /* Start Screen */
+        .start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .start-screen.hidden {
+            display: none;
+        }
+
+        .start-content {
+            text-align: center;
+            padding: 60px;
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+            border-radius: 30px;
+            border: 4px solid #00ff9f;
+            box-shadow: 0 0 80px rgba(0, 255, 159, 0.6);
+            max-width: 900px;
+        }
+
+        .start-title {
+            font-size: 72px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            margin-bottom: 30px;
+            background: linear-gradient(90deg, #ff0055, #00d4ff, #00ff9f, #ff0055);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-shift 4s linear infinite;
+            text-shadow: 0 0 40px rgba(0, 255, 159, 0.8);
+        }
+
+        .start-subtitle {
+            font-size: 24px;
+            color: #00ff9f;
+            margin-bottom: 40px;
+            text-shadow: 0 0 20px rgba(0, 255, 159, 0.6);
+        }
+
+        /* Mode Selection */
+        .mode-selection {
+            margin-bottom: 40px;
+        }
+
+        .mode-title {
+            font-size: 20px;
+            color: #00ff9f;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .mode-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .mode-btn {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            padding: 20px 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #666;
+            border-radius: 15px;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            text-transform: uppercase;
+        }
+
+        .mode-btn:hover {
+            transform: scale(1.05);
+            border-color: #00ff9f;
+            color: #00ff9f;
+            box-shadow: 0 0 30px rgba(0, 255, 159, 0.4);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, rgba(0, 255, 159, 0.2), rgba(0, 212, 255, 0.2));
+            border-color: #00ff9f;
+            color: #00ff9f;
+            box-shadow: 0 0 40px rgba(0, 255, 159, 0.6);
+        }
+
+        .mode-description {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .mode-btn.active .mode-description {
+            color: #00ff9f;
+        }
+
+        .players-preview {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin-bottom: 40px;
+        }
+
+        .player-preview {
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            border: 2px solid;
+            min-width: 250px;
+            transition: all 0.3s ease;
+        }
+
+        .player-preview:hover {
+            transform: scale(1.05);
+        }
+
+        .player1-preview {
+            border-color: #ff0055;
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.4);
+        }
+
+        .player2-preview {
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+        }
+
+        .player-preview-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            border: 3px solid #fff;
+        }
+
+        .player1-preview-icon {
+            background: radial-gradient(circle, #ff0055 0%, #cc0044 100%);
+            box-shadow: 0 0 40px rgba(255, 0, 85, 0.8);
+        }
+
+        .player2-preview-icon {
+            background: radial-gradient(circle, #00d4ff 0%, #0088cc 100%);
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.8);
+        }
+
+        .player-preview-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .player1-preview-name { color: #ff0055; }
+        .player2-preview-name { color: #00d4ff; }
+
+        .player-preview-controls {
+            font-size: 16px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .start-btn {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            font-size: 36px;
+            padding: 20px 60px;
+            background: linear-gradient(90deg, #ff0055, #00d4ff, #00ff9f);
+            background-size: 200% auto;
+            border: none;
+            border-radius: 15px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 40px rgba(0, 255, 159, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            animation: gradient-shift 3s linear infinite, btn-pulse 2s infinite;
+        }
+
+        @keyframes btn-pulse {
+            0%, 100% { 
+                box-shadow: 0 0 40px rgba(0, 255, 159, 0.5);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 60px rgba(0, 255, 159, 0.8);
+                transform: scale(1.05);
+            }
+        }
+
+        .start-btn:hover {
+            transform: scale(1.1) !important;
+            box-shadow: 0 0 80px rgba(0, 255, 159, 1) !important;
+        }
+
+        .start-btn:active {
+            transform: scale(0.95) !important;
+        }
+
+        .game-info {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .game-over-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .game-over-content {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+            border-radius: 20px;
+            border: 3px solid #00ff9f;
+            box-shadow: 0 0 60px rgba(0, 255, 159, 0.6);
+        }
+
+        .winner-text {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 30px;
+        }
+
+        .restart-btn {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            font-size: 24px;
+            padding: 15px 40px;
+            margin-top: 20px;
+            background: linear-gradient(90deg, #ff0055, #00d4ff);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.5);
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.8);
+        }
+
+        .controls-info {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .control-box {
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+
+        /* LED Sync Status */
+        .sync-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #666;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #888;
+            z-index: 100;
+        }
+
+        .sync-status.connected {
+            border-color: #00ff9f;
+            color: #00ff9f;
+        }
+
+        /* Debug Info */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #00ff9f;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #00ff9f;
+            font-family: monospace;
+            z-index: 100;
+            min-width: 200px;
+        }
+
+        .debug-key {
+            color: #ff0055;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="start-screen" id="startScreen">
+        <div class="start-content">
+            <h1 class="start-title">TERRITORY WAR</h1>
+            <p class="start-subtitle">Cyberpunk Battle Arena</p>
+            
+            <!-- Mode Selection -->
+            <div class="mode-selection">
+                <div class="mode-title">🎮 เลือกโหมดการเล่น</div>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" onclick="selectMode('divided')" id="modeDivided">
+                        <div>🚧 DIVIDED MODE</div>
+                        <div class="mode-description">มีเส้นกั้นตรงกลาง<br>แข่งกันคนละฝั่ง</div>
+                    </button>
+                    <button class="mode-btn" onclick="selectMode('open')" id="modeOpen">
+                        <div>🌐 OPEN MODE</div>
+                        <div class="mode-description">ไม่มีเส้นกั้น<br>แย่งพื้นที่ได้ทั้งหมด</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="players-preview">
+                <div class="player-preview player1-preview">
+                    <div class="player-preview-icon player1-preview-icon"></div>
+                    <div class="player-preview-name player1-preview-name">PLAYER 01</div>
+                    <div class="player-preview-controls">WASD Keys 🔤</div>
+                </div>
+                
+                <div class="player-preview player2-preview">
+                    <div class="player-preview-icon player2-preview-icon"></div>
+                    <div class="player-preview-name player2-preview-name">PLAYER 02</div>
+                    <div class="player-preview-controls">Arrow Keys ⬆️⬇️⬅️➡️</div>
+                </div>
+            </div>
+
+            <button class="start-btn" onclick="startGame()">START GAME</button>
+
+            <div class="game-info">
+                ⏱️ Game Duration: 60 Seconds<br>
+                🎯 Objective: Capture more territory than your opponent<br>
+                ⚔️ Move to claim tiles - Mirror sync across the battlefield!
+            </div>
+        </div>
+    </div>
+
+    <div class="sync-status" id="syncStatus">LED: Ready</div>
+    <div class="debug-info" id="debugInfo">
+        <div>Game: <span class="debug-key" id="debugActive">Not Started</span></div>
+        <div>Mode: <span class="debug-key" id="debugMode">DIVIDED</span></div>
+        <div>P1: <span class="debug-key" id="debugP1">(-, -)</span></div>
+        <div>P2: <span class="debug-key" id="debugP2">(-, -)</span></div>
+        <div>Last Key: <span class="debug-key" id="debugKey">None</span></div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <div class="game-header">
+            <h1 class="game-title">TERRITORY WAR</h1>
+        </div>
+
+        <div class="timer" id="timer">60</div>
+
+        <div class="score-container">
+            <div class="score-box player1-score">
+                <div class="player-name player1-name">PLAYER 01</div>
+                <div class="score-value" id="player1Score">0</div>
+            </div>
+            <div class="score-box player2-score">
+                <div class="player-name player2-name">PLAYER 02</div>
+                <div class="score-value" id="player2Score">0</div>
+            </div>
+        </div>
+
+        <div class="game-grid" id="gameGrid"></div>
+
+        <div class="controls-info">
+            <div class="control-box">
+                <span style="color: #ff0055;">▲ Player 01:</span> WASD
+            </div>
+            <div class="control-box">
+                <span style="color: #00d4ff;">▲ Player 02:</span> Arrow Keys
+            </div>
+        </div>
+    </div>
+
+    <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="game-over-content">
+            <div class="winner-text" id="winnerText"></div>
+            <div style="font-size: 24px; margin: 20px 0;">
+                <span style="color: #ff0055;">Player 01: <span id="finalScore1">0</span></span><br>
+                <span style="color: #00d4ff;">Player 02: <span id="finalScore2">0</span></span>
+            </div>
+            <button class="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const CONFIG = {
+            GRID_WIDTH: 10,
+            GRID_HEIGHT: 6,
+            PLAYER1_AREA: { start: 0, end: 3 },
+            NEUTRAL_AREA: { start: 4, end: 5 },
+            PLAYER2_AREA: { start: 6, end: 9 },
+            GAME_DURATION: 60,
+            LED_READY: false,
+            GAME_MODE: 'divided'
+        };
+
+        // Game State
+        let gameState = {
+            grid: [],
+            player1: { x: 1, y: 2 },
+            player2: { x: 7, y: 2 },
+            timeLeft: CONFIG.GAME_DURATION,
+            gameActive: false,
+            scores: { player1: 0, player2: 0 },
+            timerInterval: null
+        };
+
+        // Mode Selection
+        function selectMode(mode) {
+            CONFIG.GAME_MODE = mode;
+            
+            document.getElementById('modeDivided').classList.remove('active');
+            document.getElementById('modeOpen').classList.remove('active');
+            
+            if (mode === 'divided') {
+                document.getElementById('modeDivided').classList.add('active');
+            } else {
+                document.getElementById('modeOpen').classList.add('active');
+            }
+            
+            console.log('Mode selected:', mode);
+            updateDebug();
+        }
+
+        // Debug display
+        function updateDebug() {
+            document.getElementById('debugActive').textContent = gameState.gameActive ? 'ACTIVE' : 'PAUSED';
+            document.getElementById('debugMode').textContent = CONFIG.GAME_MODE.toUpperCase();
+            document.getElementById('debugP1').textContent = `(${gameState.player1.x}, ${gameState.player1.y})`;
+            document.getElementById('debugP2').textContent = `(${gameState.player2.x}, ${gameState.player2.y})`;
+        }
+
+        // Start Game
+        function startGame() {
+            console.log('=== STARTING GAME ===');
+            console.log('Mode:', CONFIG.GAME_MODE);
+            
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameContainer').classList.add('active');
+            
+            gameState = {
+                grid: [],
+                player1: { x: 1, y: 2 },
+                player2: { x: 7, y: 2 },
+                timeLeft: CONFIG.GAME_DURATION,
+                gameActive: true,
+                scores: { player1: 0, player2: 0 },
+                timerInterval: null
+            };
+            
+            initGrid();
+            renderPlayers();
+            updateCell(gameState.player1.x, gameState.player1.y, 1);
+            updateCell(gameState.player2.x, gameState.player2.y, 2);
+            startTimer();
+            updateDebug();
+        }
+
+        // Initialize Grid
+        function initGrid() {
+            const gridElement = document.getElementById('gameGrid');
+            gridElement.innerHTML = '';
+            gameState.grid = [];
+
+            for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
+                gameState.grid[y] = [];
+                for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+
+                    if (CONFIG.GAME_MODE === 'divided' && 
+                        x >= CONFIG.NEUTRAL_AREA.start && x <= CONFIG.NEUTRAL_AREA.end) {
+                        cell.classList.add('neutral-zone');
+                        gameState.grid[y][x] = 'neutral';
+                    } else {
+                        gameState.grid[y][x] = null;
+                    }
+
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        // Mirror X coordinate
+        function getMirrorX(x) {
+            if (x >= CONFIG.PLAYER1_AREA.start && x <= CONFIG.PLAYER1_AREA.end) {
+                const offset = x - CONFIG.PLAYER1_AREA.start;
+                return CONFIG.PLAYER2_AREA.start + offset;
+            } else if (x >= CONFIG.PLAYER2_AREA.start && x <= CONFIG.PLAYER2_AREA.end) {
+                const offset = x - CONFIG.PLAYER2_AREA.start;
+                return CONFIG.PLAYER1_AREA.start + offset;
+            }
+            return null;
+        }
+
+        // Update Cell with Mirror Sync
+        function updateCell(x, y, player) {
+            if (CONFIG.GAME_MODE === 'divided' && 
+                x >= CONFIG.NEUTRAL_AREA.start && x <= CONFIG.NEUTRAL_AREA.end) {
+                return;
+            }
+
+            const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            if (cell) {
+                cell.classList.remove('player1-cell', 'player2-cell');
+                if (player === 1) {
+                    cell.classList.add('player1-cell');
+                    gameState.grid[y][x] = 1;
+                } else if (player === 2) {
+                    cell.classList.add('player2-cell');
+                    gameState.grid[y][x] = 2;
+                }
+            }
+
+            const mirrorX = getMirrorX(x);
+            if (mirrorX !== null) {
+                const mirrorCell = document.querySelector(`[data-x="${mirrorX}"][data-y="${y}"]`);
+                if (mirrorCell) {
+                    mirrorCell.classList.remove('player1-cell', 'player2-cell');
+                    if (player === 1) {
+                        mirrorCell.classList.add('player1-cell');
+                        gameState.grid[y][mirrorX] = 1;
+                    } else if (player === 2) {
+                        mirrorCell.classList.add('player2-cell');
+                        gameState.grid[y][mirrorX] = 2;
+                    }
+                }
+            }
+
+            updateScores();
+            sendToLED(x, y, player);
+            if (mirrorX !== null) {
+                sendToLED(mirrorX, y, player);
+            }
+        }
+
+        // Calculate Scores - FIX: นับแค่ครึ่งหนึ่งของแผนที่
+        function updateScores() {
+            let p1Score = 0;
+            let p2Score = 0;
+
+            // นับเฉพาะฝั่งซ้าย (0-4) เพราะมี mirror ฝั่งขวา
+            for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
+                for (let x = 0; x <= 4; x++) {  // เปลี่ยนจาก x < CONFIG.GRID_WIDTH เป็น x <= 4
+                    if (gameState.grid[y][x] === 1) p1Score++;
+                    if (gameState.grid[y][x] === 2) p2Score++;
+                }
+            }
+
+            gameState.scores.player1 = p1Score;
+            gameState.scores.player2 = p2Score;
+
+            document.getElementById('player1Score').textContent = p1Score;
+            document.getElementById('player2Score').textContent = p2Score;
+        }
+
+        // Render Players
+        function renderPlayers() {
+            document.querySelectorAll('.player-position').forEach(el => el.remove());
+
+            const p1Cell = document.querySelector(`[data-x="${gameState.player1.x}"][data-y="${gameState.player1.y}"]`);
+            if (p1Cell) {
+                const p1Marker = document.createElement('div');
+                p1Marker.className = 'player-position player1-position';
+                p1Cell.appendChild(p1Marker);
+            }
+
+            const p2Cell = document.querySelector(`[data-x="${gameState.player2.x}"][data-y="${gameState.player2.y}"]`);
+            if (p2Cell) {
+                const p2Marker = document.createElement('div');
+                p2Marker.className = 'player-position player2-position';
+                p2Cell.appendChild(p2Marker);
+            }
+
+            updateDebug();
+        }
+
+        // Move Player
+        function movePlayer(player, dx, dy) {
+            if (!gameState.gameActive) {
+                return;
+            }
+
+            const playerData = player === 1 ? gameState.player1 : gameState.player2;
+            const newX = playerData.x + dx;
+            const newY = playerData.y + dy;
+
+            if (newX < 0 || newX >= CONFIG.GRID_WIDTH || newY < 0 || newY >= CONFIG.GRID_HEIGHT) {
+                return;
+            }
+
+            if (CONFIG.GAME_MODE === 'divided' && 
+                newX >= CONFIG.NEUTRAL_AREA.start && newX <= CONFIG.NEUTRAL_AREA.end) {
+                return;
+            }
+
+            playerData.x = newX;
+            playerData.y = newY;
+
+            updateCell(newX, newY, player);
+            renderPlayers();
+        }
+
+        // Keyboard Controls
+        document.addEventListener('keydown', (e) => {
+            document.getElementById('debugKey').textContent = e.key;
+
+            if (!gameState.gameActive) {
+                return;
+            }
+
+            if(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
+                e.preventDefault();
+            }
+
+            const key = e.key.toLowerCase();
+            if (key === 'w') {
+                movePlayer(1, 0, -1);
+            } else if (key === 's') {
+                movePlayer(1, 0, 1);
+            } else if (key === 'a') {
+                movePlayer(1, -1, 0);
+            } else if (key === 'd') {
+                movePlayer(1, 1, 0);
+            }
+
+            if (e.key === 'ArrowUp') {
+                movePlayer(2, 0, -1);
+            } else if (e.key === 'ArrowDown') {
+                movePlayer(2, 0, 1);
+            } else if (e.key === 'ArrowLeft') {
+                movePlayer(2, -1, 0);
+            } else if (e.key === 'ArrowRight') {
+                movePlayer(2, 1, 0);
+            }
+        });
+
+        // Timer
+        function startTimer() {
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+            }
+
+            gameState.timerInterval = setInterval(() => {
+                if (!gameState.gameActive) {
+                    clearInterval(gameState.timerInterval);
+                    return;
+                }
+
+                gameState.timeLeft--;
+                document.getElementById('timer').textContent = gameState.timeLeft;
+
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                    clearInterval(gameState.timerInterval);
+                }
+            }, 1000);
+        }
+
+        // End Game
+        function endGame() {
+            gameState.gameActive = false;
+            updateDebug();
+            
+            const overlay = document.getElementById('gameOverOverlay');
+            const winnerText = document.getElementById('winnerText');
+
+            document.getElementById('finalScore1').textContent = gameState.scores.player1;
+            document.getElementById('finalScore2').textContent = gameState.scores.player2;
+
+            if (gameState.scores.player1 > gameState.scores.player2) {
+                winnerText.textContent = '🏆 PLAYER 01 WINS!';
+                winnerText.style.color = '#ff0055';
+            } else if (gameState.scores.player2 > gameState.scores.player1) {
+                winnerText.textContent = '🏆 PLAYER 02 WINS!';
+                winnerText.style.color = '#00d4ff';
+            } else {
+                winnerText.textContent = '🤝 DRAW!';
+                winnerText.style.color = '#00ff9f';
+            }
+
+            overlay.style.display = 'flex';
+        }
+
+        // Restart Game
+        function restartGame() {
+            document.getElementById('gameOverOverlay').style.display = 'none';
+            document.getElementById('startScreen').classList.remove('hidden');
+            document.getElementById('gameContainer').classList.remove('active');
+            
+            document.getElementById('timer').textContent = CONFIG.GAME_DURATION;
+            document.getElementById('player1Score').textContent = '0';
+            document.getElementById('player2Score').textContent = '0';
+
+            gameState = {
+                grid: [],
+                player1: { x: 1, y: 2 },
+                player2: { x: 7, y: 2 },
+                timeLeft: CONFIG.GAME_DURATION,
+                gameActive: false,
+                scores: { player1: 0, player2: 0 },
+                timerInterval: null
+            };
+            
+            updateDebug();
+        }
+
+        // LED Integration Hook
+        function sendToLED(x, y, player) {
+            if (!CONFIG.LED_READY) return;
+            console.log(`LED Update: (${x}, ${y}) -> Player ${player}`);
+        }
+
+        // Initialize on page load
+        window.onload = () => {
+            console.log('Page loaded, showing start screen');
+            updateDebug();
+        };
+    </script>
+</body>
+</html>
+
