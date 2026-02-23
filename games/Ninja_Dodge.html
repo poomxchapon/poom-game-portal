@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ninja Dodge: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 10;
+            --rows: 20;
+            --tile-size: clamp(16px, 3.4vh, 34px);
+            --gap-size: 2px;
+            --neon: #b44dff;
+            --neon-dim: #9933dd;
+            --attack: #ff003c;
+            --attack-dim: rgba(255, 0, 60, 0.3);
+            --counter: #00aaff;
+            --counter-dim: rgba(0, 170, 255, 0.3);
+            --stun: #ffd700;
+            --hit: #ffffff;
+            --bg: #06060f;
+            --panel: #0c0c1a;
+            --panel-border: #1a1a35;
+            --floor: #12122a;
+            --floor-hover: #1c1c3a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* Scanline CRT */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(180,77,255,0.012) 2px, rgba(180,77,255,0.012) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* 3-Column Arcade Layout */
+        #arcade-cabinet {
+            display: flex;
+            align-items: stretch;
+            gap: 16px;
+            height: calc(100vh - 24px);
+            max-height: 100vh;
+            padding: 12px;
+        }
+
+        .side-panel {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .panel-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+        }
+
+        .panel-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .panel-value {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* Grid */
+        #grid-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap-size);
+            padding: 6px;
+            background: linear-gradient(180deg, #0a0a18 0%, #08081a 100%);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(180,77,255,0.03), inset 0 0 60px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .tile {
+            width: 100%; height: 100%;
+            background-color: var(--floor);
+            border-radius: 2px;
+            transition: background-color 0.1s, box-shadow 0.1s;
+            position: relative;
+        }
+
+        .tile:hover { background-color: var(--floor-hover); }
+
+        /* Tile States */
+        .tile.attack {
+            background-color: var(--attack);
+            box-shadow: 0 0 12px var(--attack), inset 0 0 4px rgba(255,255,255,0.15);
+        }
+
+        .tile.telegraph {
+            animation: telegraphFlash 0.2s infinite alternate;
+        }
+
+        .tile.counter {
+            background-color: var(--counter);
+            box-shadow: 0 0 14px var(--counter), inset 0 0 6px rgba(255,255,255,0.15);
+            animation: counterPulse 0.8s ease-in-out infinite alternate;
+        }
+
+        .tile.stun-bonus {
+            background-color: var(--stun);
+            box-shadow: 0 0 18px var(--stun), 0 0 4px #fff;
+            animation: stunBonusPulse 0.4s ease-in-out infinite alternate;
+        }
+
+        .tile.hit {
+            background-color: var(--hit) !important;
+            box-shadow: 0 0 28px var(--hit) !important;
+            transform: scale(1.06);
+            animation: none !important;
+        }
+
+        .tile.damage-flash {
+            background-color: var(--attack) !important;
+            box-shadow: 0 0 20px var(--attack) !important;
+        }
+
+        /* Timer Bar */
+        #timer-bar-wrap {
+            width: 100%;
+            max-width: calc(var(--cols) * (var(--tile-size) + var(--gap-size)) + 12px);
+            height: 4px;
+            background: #1a1a30;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, var(--neon), var(--neon-dim));
+            border-radius: 2px;
+            transition: width 0.3s linear, background 0.3s;
+        }
+
+        #timer-bar.low { background: linear-gradient(90deg, var(--attack), #ff6600); }
+
+        /* Phase Badge */
+        .phase-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .phase-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            animation: dotPulse 1.5s infinite;
+        }
+
+        .phase-1 { background: rgba(180,77,255,0.1); color: var(--neon); border: 1px solid rgba(180,77,255,0.2); }
+        .phase-1 .phase-dot { background: var(--neon); box-shadow: 0 0 6px var(--neon); }
+        .phase-2 { background: rgba(255,174,0,0.1); color: #ffae00; border: 1px solid rgba(255,174,0,0.2); }
+        .phase-2 .phase-dot { background: #ffae00; box-shadow: 0 0 6px #ffae00; }
+        .phase-3 { background: rgba(255,0,60,0.1); color: var(--attack); border: 1px solid rgba(255,0,60,0.2); }
+        .phase-3 .phase-dot { background: var(--attack); box-shadow: 0 0 6px var(--attack); }
+
+        /* Combo & Stun Bars */
+        .bar-track {
+            width: 100%;
+            height: 6px;
+            background: #1a1a30;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.2s, background 0.2s;
+            width: 0%;
+        }
+
+        /* NPC Status */
+        .npc-status-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+        }
+
+        .npc-attacking { color: var(--attack); }
+        .npc-stunned { color: var(--stun); animation: stunFlash 0.4s infinite alternate; }
+
+        /* Player */
+        #player {
+            position: absolute;
+            width: var(--tile-size);
+            height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #d68fff 0%, #b44dff 60%, #7722cc 100%);
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 0 12px var(--neon), 0 0 3px #fff;
+            z-index: 30;
+            transition: left 0.07s ease-out, top 0.07s ease-out;
+            pointer-events: none;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        #player::after {
+            content: '';
+            width: 40%; height: 40%;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 20%; left: 22%;
+            filter: blur(1px);
+        }
+
+        #player.step-flash { animation: stepPulse 0.12s ease-out; }
+        #player.invincible { animation: playerBlink 0.15s infinite alternate; }
+
+        /* Overlays */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,4,12,0.94);
+            backdrop-filter: blur(16px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden { display: none; }
+
+        .btn-play {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #000;
+            background: linear-gradient(135deg, var(--neon) 0%, var(--neon-dim) 100%);
+            border: none;
+            padding: 14px 48px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(180,77,255,0.3), 0 4px 20px rgba(0,0,0,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-play::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 35px rgba(180,77,255,0.5), 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .btn-play:hover::after { transform: translateX(100%); }
+        .btn-play:active { transform: translateY(0) scale(0.98); }
+
+        /* Menu Decorations */
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            letter-spacing: 6px;
+            color: var(--neon);
+            text-shadow: 0 0 30px rgba(180,77,255,0.4), 0 0 60px rgba(180,77,255,0.15);
+            line-height: 1;
+        }
+
+        .menu-subtitle {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 8px;
+            color: #444;
+            margin-top: 6px;
+        }
+
+        .menu-divider {
+            width: 120px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+            margin: 16px auto;
+        }
+
+        .high-score-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 18px;
+            background: rgba(255,200,0,0.06);
+            border: 1px solid rgba(255,200,0,0.15);
+            border-radius: 8px;
+        }
+
+        .phase-info-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
+        .phase-info-row .phase-badge { font-size: 0.5rem; padding: 2px 8px; }
+
+        /* Game Over Stats Card */
+        .stats-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            width: 280px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #1a1a30;
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+
+        /* Score/Combo Popups */
+        .combo-popup {
+            position: fixed;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--neon);
+            text-shadow: 0 0 10px var(--neon);
+            pointer-events: none;
+            z-index: 50;
+            animation: comboFloat 0.7s ease-out forwards;
+        }
+
+        .score-fly {
+            position: fixed;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            pointer-events: none;
+            z-index: 200;
+            animation: comboFloat 0.6s ease-out forwards;
+        }
+
+        /* Keyframes */
+        @keyframes telegraphFlash {
+            0% { background-color: var(--floor); }
+            100% { background-color: var(--attack-dim); box-shadow: 0 0 8px rgba(255,0,60,0.2); }
+        }
+
+        @keyframes counterPulse {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.3); }
+        }
+
+        @keyframes stunBonusPulse {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.4); transform: scale(1.05); }
+        }
+
+        @keyframes stunFlash {
+            0% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        @keyframes playerBlink {
+            0% { opacity: 1; }
+            100% { opacity: 0.25; }
+        }
+
+        @keyframes comboFloat {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-36px) scale(1.2); opacity: 0; }
+        }
+
+        @keyframes fadeSlide {
+            from { transform: translateY(16px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes countPulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        @keyframes stepPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); box-shadow: 0 0 22px var(--neon); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes gridShake {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-4px, 2px); }
+            40% { transform: translate(4px, -2px); }
+            60% { transform: translate(-2px, 4px); }
+            80% { transform: translate(2px, -3px); }
+        }
+
+        /* Control Keys */
+        .key-cap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px; height: 22px;
+            background: #1a1a30;
+            border: 1px solid #2a2a45;
+            border-radius: 4px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: #888;
+        }
+
+        .key-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            margin-top: 8px;
+        }
+
+        .key-row { display: flex; gap: 2px; }
+
+        /* ═══ View Toggle Button ═══ */
+        .view-toggle {
+            position: fixed;
+            top: 10px; right: 10px;
+            z-index: 90;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #666;
+            background: rgba(12,12,26,0.85);
+            border: 1px solid #2a2a45;
+            padding: 7px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .view-toggle:hover { color: var(--neon); border-color: var(--neon); box-shadow: 0 0 12px rgba(180,77,255,0.2); }
+
+        /* ═══ Projector View ═══ */
+        #projector-view { display: none; position: fixed; inset: 0; background: #04040c; z-index: 10; }
+        #projector-view.active { display: block; }
+
+        .pj-bg { position: absolute; inset: 0; background-image: linear-gradient(rgba(180,77,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(180,77,255,0.03) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; }
+
+        .pj-particle { position: absolute; border-radius: 50%; background: rgba(180,77,255,0.35); pointer-events: none; animation: pjFloat linear infinite; }
+        @keyframes pjFloat { 0%{transform:translateY(0);opacity:0}10%{opacity:0.8}90%{opacity:0.3}100%{transform:translateY(calc(-100vh - 20px));opacity:0} }
+
+        /* Projector HUD Top */
+        .pj-hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 24px 40px; z-index: 12; }
+        .pj-phase { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; letter-spacing:3px; padding:8px 20px; border-radius:8px; border:1px solid rgba(180,77,255,0.3); background:rgba(180,77,255,0.08); color:var(--neon); }
+        .pj-title { font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.5rem; letter-spacing:8px; color:var(--neon); text-shadow:0 0 30px rgba(180,77,255,0.3); }
+        .pj-timer { font-family:'Orbitron',sans-serif; font-weight:900; font-size:2.5rem; color:#fff; letter-spacing:3px; }
+        .pj-timer.low { color: var(--attack); }
+
+        /* NPC Area */
+        .pj-npc-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-55%); display: flex; flex-direction: column; align-items: center; z-index: 11; }
+
+        .pj-aura { position: absolute; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, rgba(180,77,255,0.12) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: pjAuraPulse 3s ease-in-out infinite; }
+        .pj-aura.stunned { background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%); animation: pjAuraStun 0.5s ease-in-out infinite; }
+        @keyframes pjAuraPulse { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.6}50%{transform:translate(-50%,-50%) scale(1.08);opacity:1} }
+        @keyframes pjAuraStun { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5}50%{transform:translate(-50%,-50%) scale(1.15);opacity:1} }
+
+        .pj-avatar { width:220px;height:220px;border-radius:50%;background:radial-gradient(circle at 38% 38%,#2a0050,#0d001a 75%);border:3px solid rgba(180,77,255,0.5);box-shadow:0 0 50px rgba(180,77,255,0.15),inset 0 0 40px rgba(0,0,0,0.5);position:relative;overflow:hidden;transition:transform .15s,border-color .2s,box-shadow .2s;animation:pjNpcFloat 4s ease-in-out infinite; }
+        @keyframes pjNpcFloat { 0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
+
+        .pj-mask { position:absolute;top:40%;left:0;right:0;height:20%;background:rgba(0,0,0,0.4); }
+        .pj-eye { position:absolute;top:46%;width:32px;height:9px;background:var(--attack);border-radius:50%;box-shadow:0 0 18px var(--attack),0 0 6px #fff;transition:all .15s; }
+        .pj-eye.l { left:25%;transform:rotate(-10deg); }
+        .pj-eye.r { right:25%;transform:rotate(10deg); }
+
+        .pj-avatar.attacking { border-color:rgba(255,0,60,0.7);box-shadow:0 0 60px rgba(255,0,60,0.25); }
+        .pj-avatar.attacking .pj-eye { box-shadow:0 0 25px var(--attack),0 0 10px #fff;height:12px; }
+
+        .pj-avatar.stunned { border-color:rgba(255,215,0,0.7)!important;box-shadow:0 0 60px rgba(255,215,0,0.2)!important;animation:pjStunShake .15s infinite alternate!important; }
+        .pj-avatar.stunned .pj-eye { background:var(--stun);box-shadow:0 0 15px var(--stun);width:18px;height:18px;border-radius:2px;transform:rotate(45deg)!important; }
+        .pj-avatar.stunned .pj-eye.l { left:28%;top:43%; }
+        .pj-avatar.stunned .pj-eye.r { right:28%;top:43%; }
+        @keyframes pjStunShake { 0%{transform:translateX(-4px) rotate(-2deg)}100%{transform:translateX(4px) rotate(2deg)} }
+
+        .pj-avatar.lunge-top{animation:pjLungeU .45s ease-out!important}
+        .pj-avatar.lunge-bottom{animation:pjLungeD .45s ease-out!important}
+        .pj-avatar.lunge-left{animation:pjLungeL .45s ease-out!important}
+        .pj-avatar.lunge-right{animation:pjLungeR .45s ease-out!important}
+        @keyframes pjLungeU{0%{transform:translateY(0)}25%{transform:translateY(-40px) scale(1.08)}100%{transform:translateY(0)}}
+        @keyframes pjLungeD{0%{transform:translateY(0)}25%{transform:translateY(40px) scale(1.08)}100%{transform:translateY(0)}}
+        @keyframes pjLungeL{0%{transform:translateX(0)}25%{transform:translateX(-40px) scale(1.08)}100%{transform:translateX(0)}}
+        @keyframes pjLungeR{0%{transform:translateX(0)}25%{transform:translateX(40px) scale(1.08)}100%{transform:translateX(0)}}
+
+        .pj-npc-name { font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.2rem;letter-spacing:6px;color:#555;margin-top:20px;transition:color .3s; }
+        .pj-npc-name.stunned { color:var(--stun); }
+        .pj-npc-status { font-family:'Orbitron',sans-serif;font-weight:700;font-size:.7rem;letter-spacing:4px;margin-top:6px;transition:color .3s; }
+        .pj-npc-status.atk { color:var(--attack); }
+        .pj-npc-status.stun { color:var(--stun);animation:pjStunText .4s infinite alternate; }
+        @keyframes pjStunText{0%{opacity:1}100%{opacity:.4}}
+
+        /* Edge Indicators */
+        .pj-edge{position:absolute;z-index:13;opacity:0;pointer-events:none;transition:opacity .1s}
+        .pj-edge.top{top:0;left:0;right:0;height:100px;background:linear-gradient(to bottom,rgba(255,0,60,0.5),transparent)}
+        .pj-edge.bottom{bottom:0;left:0;right:0;height:100px;background:linear-gradient(to top,rgba(255,0,60,0.5),transparent)}
+        .pj-edge.left{top:0;bottom:0;left:0;width:100px;background:linear-gradient(to right,rgba(255,0,60,0.5),transparent)}
+        .pj-edge.right{top:0;bottom:0;right:0;width:100px;background:linear-gradient(to left,rgba(255,0,60,0.5),transparent)}
+        .pj-edge.active{opacity:1}
+
+        .pj-arrow{position:absolute;z-index:14;opacity:0;pointer-events:none;font-family:'Orbitron',sans-serif;font-weight:900;font-size:3rem;color:var(--attack);text-shadow:0 0 20px var(--attack);transition:opacity .15s}
+        .pj-arrow.top{top:20px;left:50%;transform:translateX(-50%)}
+        .pj-arrow.bottom{bottom:20px;left:50%;transform:translateX(-50%)}
+        .pj-arrow.left{left:20px;top:50%;transform:translateY(-50%)}
+        .pj-arrow.right{right:20px;top:50%;transform:translateY(-50%)}
+        .pj-arrow.active{opacity:1;animation:pjArrowPop .3s ease-out}
+        @keyframes pjArrowPop{0%{opacity:0;filter:blur(4px)}50%{opacity:1}100%{filter:blur(0)}}
+
+        /* Center Alert */
+        .pj-alert{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(3rem,8vw,6rem);opacity:0;pointer-events:none;z-index:15;text-shadow:0 0 40px currentColor;letter-spacing:8px}
+        .pj-alert.show{animation:pjAlertPop 1s ease-out forwards}
+        @keyframes pjAlertPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.05)}}
+
+        /* Screen Flash */
+        .pj-flash{position:absolute;inset:0;z-index:16;pointer-events:none;opacity:0}
+        .pj-flash.red{background:rgba(255,0,60,0.3);animation:pjFlash .4s ease-out}
+        .pj-flash.gold{background:rgba(255,215,0,0.2);animation:pjFlash .5s ease-out}
+        .pj-flash.blue{background:rgba(0,170,255,0.15);animation:pjFlash .3s ease-out}
+        @keyframes pjFlash{0%{opacity:1}100%{opacity:0}}
+
+        /* Projector HUD Bottom */
+        .pj-hud-bottom{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:50px;padding:24px 40px;z-index:12}
+        .pj-hud-block{text-align:center}
+        .pj-hud-label{font-family:'Orbitron',sans-serif;font-size:.55rem;font-weight:700;letter-spacing:4px;color:#444;margin-bottom:6px}
+        .pj-hud-val{font-family:'Orbitron',sans-serif;font-weight:900;line-height:1}
+        .pj-stun-wrap{display:flex;align-items:center;gap:12px}
+        .pj-stun-track{width:200px;height:10px;background:#1a1a30;border-radius:5px;overflow:hidden}
+        .pj-stun-fill{height:100%;width:0%;background:var(--counter);border-radius:5px;transition:width .3s,background .3s}
+        .pj-stun-fill.full{background:var(--stun)}
+        .pj-stun-count{font-family:'Orbitron',sans-serif;font-size:.8rem;font-weight:700;color:#666;min-width:40px}
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <!-- ARCADE CABINET LAYOUT -->
+    <div id="arcade-cabinet">
+
+        <!-- LEFT PANEL -->
+        <div class="side-panel">
+            <!-- Title -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:1rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(180,77,255,0.3);">NINJA</div>
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:1rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(180,77,255,0.3); margin-top:-2px;">DODGE</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.45rem; color:#444; letter-spacing:4px; margin-top:4px;">LED FLOOR ARCADE</div>
+            </div>
+
+            <!-- Phase -->
+            <div class="panel-card">
+                <div class="panel-label">PHASE</div>
+                <span id="phase-indicator" class="phase-badge phase-1">
+                    <span class="phase-dot"></span>
+                    PHASE 1
+                </span>
+            </div>
+
+            <!-- Timer -->
+            <div class="panel-card">
+                <div class="panel-label">TIME REMAINING</div>
+                <div id="time-display" class="panel-value" style="font-size:2rem; color:#fff; letter-spacing:2px;">1:30</div>
+                <div id="timer-bar-wrap" style="margin-top:10px;">
+                    <div id="timer-bar"></div>
+                </div>
+            </div>
+
+            <!-- Best Score -->
+            <div class="panel-card">
+                <div class="panel-label">HIGH SCORE</div>
+                <div id="hud-high-score" class="panel-value" style="font-size:1.2rem; color:#ffd700;">0</div>
+            </div>
+
+            <!-- Spacer -->
+            <div style="flex:1;"></div>
+
+            <!-- Controls -->
+            <div class="panel-card" style="text-align:center;">
+                <div class="panel-label" style="margin-bottom:2px;">CONTROLS</div>
+                <div class="key-group">
+                    <div class="key-row"><span class="key-cap">W</span></div>
+                    <div class="key-row"><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span></div>
+                </div>
+                <div style="font-size:0.55rem; color:#444; margin-top:6px;">or Arrow Keys</div>
+            </div>
+        </div>
+
+        <!-- CENTER: GRID -->
+        <div id="grid-column">
+            <div id="game-grid"></div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="side-panel">
+            <!-- Score -->
+            <div class="panel-card">
+                <div class="panel-label">SCORE</div>
+                <div id="score-display" class="panel-value" style="font-size:2.2rem; color:#fff;">0</div>
+            </div>
+
+            <!-- Combo -->
+            <div class="panel-card">
+                <div class="panel-label">COMBO</div>
+                <div id="combo-display" class="panel-value" style="font-size:1.6rem; color:var(--neon);">x1</div>
+                <div class="bar-track">
+                    <div id="combo-bar" class="bar-fill" style="background:var(--neon);"></div>
+                </div>
+            </div>
+
+            <!-- NPC Status -->
+            <div class="panel-card">
+                <div class="panel-label">NPC STATUS</div>
+                <div id="npc-status" class="npc-status-text npc-attacking">ATTACKING</div>
+                <div class="panel-label" style="margin-top:10px;">STUN METER</div>
+                <div class="bar-track">
+                    <div id="stun-bar" class="bar-fill" style="background:var(--counter);"></div>
+                </div>
+                <div id="stun-count" style="font-family:'Orbitron',sans-serif; font-size:0.55rem; color:#555; margin-top:4px; text-align:center;">0 / 5</div>
+            </div>
+
+            <!-- Blue Hits -->
+            <div class="panel-card">
+                <div class="panel-label">BLUE HITS</div>
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span id="hud-blue-hits" class="panel-value" style="font-size:1.4rem; color:var(--counter);">0</span>
+                    <span style="font-size:0.55rem; color:#444;">STOMPED</span>
+                </div>
+            </div>
+
+            <!-- Times Hit -->
+            <div class="panel-card">
+                <div class="panel-label">TIMES HIT</div>
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span id="hud-times-hit" class="panel-value" style="font-size:1.4rem; color:var(--attack);">0</span>
+                    <span style="font-size:0.55rem; color:#444;">DAMAGE</span>
+                </div>
+            </div>
+
+            <!-- Spacer -->
+            <div style="flex:1;"></div>
+
+            <!-- Game ID -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.5rem; color:#333; letter-spacing:3px;">CSM-C1-010</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.45rem; color:#222; letter-spacing:2px; margin-top:2px;">FORTAL GDD v2.3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW TOGGLE -->
+    <button id="view-toggle" class="view-toggle" onclick="toggleView()">PROJECTOR</button>
+
+    <!-- PROJECTOR VIEW -->
+    <div id="projector-view">
+        <div class="pj-bg"></div>
+        <div id="pj-particles"></div>
+
+        <!-- Top HUD -->
+        <div class="pj-hud-top">
+            <div id="pj-phase" class="pj-phase">PHASE 1</div>
+            <div class="pj-title">NINJA DODGE</div>
+            <div id="pj-timer" class="pj-timer">1:30</div>
+        </div>
+
+        <!-- NPC Area -->
+        <div class="pj-npc-area">
+            <div id="pj-aura" class="pj-aura"></div>
+            <div id="pj-avatar" class="pj-avatar">
+                <div class="pj-mask"></div>
+                <div class="pj-eye l"></div>
+                <div class="pj-eye r"></div>
+            </div>
+            <div id="pj-npc-name" class="pj-npc-name">SHADOW</div>
+            <div id="pj-npc-status" class="pj-npc-status atk">ATTACKING</div>
+        </div>
+
+        <!-- Edge Indicators -->
+        <div id="pj-edge-top" class="pj-edge top"></div>
+        <div id="pj-edge-bottom" class="pj-edge bottom"></div>
+        <div id="pj-edge-left" class="pj-edge left"></div>
+        <div id="pj-edge-right" class="pj-edge right"></div>
+
+        <!-- Edge Arrows -->
+        <div id="pj-arrow-top" class="pj-arrow top">&#9660;</div>
+        <div id="pj-arrow-bottom" class="pj-arrow bottom">&#9650;</div>
+        <div id="pj-arrow-left" class="pj-arrow left">&#9654;</div>
+        <div id="pj-arrow-right" class="pj-arrow right">&#9664;</div>
+
+        <!-- Center Alert -->
+        <div id="pj-alert" class="pj-alert"></div>
+
+        <!-- Screen Flash -->
+        <div id="pj-flash" class="pj-flash"></div>
+
+        <!-- Bottom HUD -->
+        <div class="pj-hud-bottom">
+            <div class="pj-hud-block">
+                <div class="pj-hud-label">STUN METER</div>
+                <div class="pj-stun-wrap">
+                    <div class="pj-stun-track"><div id="pj-stun-bar" class="pj-stun-fill"></div></div>
+                    <span id="pj-stun-count" class="pj-stun-count">0/5</span>
+                </div>
+            </div>
+            <div class="pj-hud-block">
+                <div class="pj-hud-label">SCORE</div>
+                <div id="pj-score" class="pj-hud-val" style="font-size:3rem;color:#fff;letter-spacing:3px;">0</div>
+            </div>
+            <div class="pj-hud-block">
+                <div class="pj-hud-label">COMBO</div>
+                <div id="pj-combo" class="pj-hud-val" style="font-size:2rem;color:var(--neon);">x1</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENU OVERLAY -->
+    <div id="menu-screen" class="overlay">
+        <div style="text-align:center; animation:fadeSlide 0.4s ease-out;">
+            <div class="menu-title">NINJA DODGE</div>
+            <div class="menu-subtitle">LED FLOOR ARCADE</div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <div class="high-score-pill" style="animation:fadeSlide 0.5s ease-out;">
+            <span style="font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#888; letter-spacing:2px;">BEST</span>
+            <span id="menu-high-score" style="font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; color:#ffd700;">0</span>
+        </div>
+
+        <div style="margin-top:20px; text-align:center; max-width:320px; animation:fadeSlide 0.6s ease-out;">
+            <p style="color:#888; font-size:0.9rem;">หลบ attack <span style="color:var(--attack); font-weight:600;">สีแดง</span> แล้วเหยียบ <span style="color:var(--counter); font-weight:600;">สีฟ้า</span> โจมตีกลับ!</p>
+            <p style="color:#555; font-size:0.75rem; margin-top:4px;">เหยียบฟ้า 5 ครั้ง = Stun NPC! รัวเก็บคะแนนโบนัส!</p>
+        </div>
+
+        <div style="margin-top:16px; animation:fadeSlide 0.65s ease-out;">
+            <div class="phase-info-row">
+                <span class="phase-badge phase-1"><span class="phase-dot"></span>P1</span>
+                <span>0-30s &middot; เส้นตรงทิศเดียว &middot; ช้า</span>
+            </div>
+            <div class="phase-info-row">
+                <span class="phase-badge phase-2"><span class="phase-dot"></span>P2</span>
+                <span>30-60s &middot; เร็ว+กระจาย &middot; 3 ทิศ</span>
+            </div>
+            <div class="phase-info-row">
+                <span class="phase-badge phase-3"><span class="phase-dot"></span>P3</span>
+                <span>60-90s &middot; รอบทิศต่อเนื่อง &middot; เร็วมาก</span>
+            </div>
+        </div>
+
+        <div style="margin-top:10px; text-align:center; animation:fadeSlide 0.7s ease-out;">
+            <div style="display:flex; gap:16px; justify-content:center; font-size:0.7rem;">
+                <span><span style="color:var(--attack);">&#9632;</span> <span style="color:#555;">แดง = -100</span></span>
+                <span><span style="color:var(--counter);">&#9632;</span> <span style="color:#555;">ฟ้า = +100</span></span>
+                <span><span style="color:var(--stun);">&#9632;</span> <span style="color:#555;">โบนัส = +150</span></span>
+            </div>
+        </div>
+
+        <div style="margin-top:6px; display:flex; align-items:center; gap:6px; animation:fadeSlide 0.75s ease-out;">
+            <div class="key-group" style="margin-top:0;">
+                <div class="key-row"><span class="key-cap">W</span></div>
+                <div class="key-row"><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span></div>
+            </div>
+            <span style="font-size:0.6rem; color:#555;">= เดิน</span>
+        </div>
+
+        <button class="btn-play" onclick="game.start()" style="margin-top:24px; animation:fadeSlide 0.8s ease-out;">
+            START
+        </button>
+    </div>
+
+    <!-- GAME OVER OVERLAY -->
+    <div id="gameover-screen" class="overlay hidden">
+        <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.5rem,4vw,2.5rem); color:var(--attack); text-shadow:0 0 20px rgba(255,0,60,0.3); letter-spacing:4px; animation:fadeSlide 0.3s ease-out;">
+            TIME'S UP
+        </div>
+
+        <div class="menu-divider" style="background:linear-gradient(90deg, transparent, var(--attack), transparent);"></div>
+
+        <div style="text-align:center; animation:fadeSlide 0.4s ease-out;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#555; letter-spacing:3px;">FINAL SCORE</div>
+            <div id="final-score" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:3.5rem; color:#fff; line-height:1; margin-top:4px;">0</div>
+            <div id="new-record-badge" class="hidden" style="margin-top:8px; display:inline-block; padding:4px 14px; background:rgba(255,200,0,0.15); border:1px solid rgba(255,200,0,0.3); border-radius:6px; font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:700; color:#ffd700; letter-spacing:2px; animation:countPulse 1s infinite;">
+                NEW RECORD
+            </div>
+        </div>
+
+        <div class="stats-card" style="margin-top:20px; animation:fadeSlide 0.5s ease-out;">
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Blue Tiles Stomped</span>
+                <span id="stat-blue" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--counter);">0</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Times Hit</span>
+                <span id="stat-hit" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--attack);">0</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Stuns Triggered</span>
+                <span id="stat-stuns" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--stun);">0</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Best Combo</span>
+                <span id="stat-combo" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--neon);">x1</span>
+            </div>
+        </div>
+
+        <button class="btn-play" onclick="game.start()" style="margin-top:24px; animation:fadeSlide 0.6s ease-out;">
+            PLAY AGAIN
+        </button>
+    </div>
+
+    <!-- COUNTDOWN OVERLAY -->
+    <div id="countdown-screen" class="overlay hidden">
+        <span id="countdown-num" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:6rem; color:var(--neon); text-shadow:0 0 40px rgba(180,77,255,0.4); animation:countPulse 0.6s ease-out;">3</span>
+    </div>
+
+<script>
+// ═══════════════════════════════════════════
+// Ninja Dodge — CSM-C1-010
+// LED Floor Reflex Arcade Game
+// ═══════════════════════════════════════════
+
+const COLS = 10;
+const ROWS = 20;
+const GAME_TIME = 90;
+const BLUE_POINTS = 100;
+const RED_POINTS = -100;
+const STUN_BONUS_POINTS = 150;
+const STUN_HITS = 5;
+const STUN_DURATION = 5000;
+const INVINCIBILITY = 1000;
+const TELEGRAPH_DURATION = 600;
+const LS_KEY = 'ninjadodge_highscore';
+
+const DIR_DELTA = {
+    down:  { dr: 1, dc: 0 },
+    up:    { dr: -1, dc: 0 },
+    right: { dr: 0, dc: 1 },
+    left:  { dr: 0, dc: -1 }
+};
+
+const PHASES = [
+    { name: 'PHASE 1', start: 0,  end: 30, speed: 300, maxAttacks: 2,
+      directions: ['down'], patterns: ['line', 'single_col'],
+      attackInterval: 3200, blueInterval: 4000, cssClass: 'phase-1' },
+    { name: 'PHASE 2', start: 30, end: 60, speed: 220, maxAttacks: 3,
+      directions: ['down', 'right', 'left'], patterns: ['line', 'single_col', 'double_col', 'diagonal'],
+      attackInterval: 2400, blueInterval: 3500, cssClass: 'phase-2' },
+    { name: 'PHASE 3', start: 60, end: 90, speed: 160, maxAttacks: 5,
+      directions: ['down', 'up', 'right', 'left'], patterns: ['line', 'single_col', 'double_col', 'diagonal', 'wave', 'cross'],
+      attackInterval: 1600, blueInterval: 3000, cssClass: 'phase-3' },
+];
+
+// ─── Helper ───
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function pickN(arr, n) { const a = [...arr]; const r = []; for (let i = 0; i < n && a.length; i++) { const idx = randomInt(0, a.length - 1); r.push(a.splice(idx, 1)[0]); } return r; }
+
+// ─── Sync (Projector) ───
+const sync = {
+    channel: null,
+    init() { try { this.channel = new BroadcastChannel('ninja-dodge-sync'); } catch(e) {} },
+    send(type, data = {}) {
+        const msg = { type, ...data, t: Date.now() };
+        if (this.channel) this.channel.postMessage(msg);
+        try { localStorage.setItem('ninja-dodge-sync', JSON.stringify(msg)); } catch(e) {}
+        if (typeof projector !== 'undefined') projector.handleEvent(msg);
+    }
+};
+sync.init();
+
+// ─── Attack Pattern Generation ───
+function generateAttackTiles(pattern, direction) {
+    const isVert = direction === 'down' || direction === 'up';
+    const tiles = [];
+
+    switch (pattern) {
+        case 'line': {
+            if (isVert) {
+                const startR = direction === 'down' ? -1 : ROWS;
+                const gapCount = randomInt(2, 3);
+                const gaps = new Set(pickN([...Array(COLS).keys()], gapCount));
+                for (let c = 0; c < COLS; c++) {
+                    if (!gaps.has(c)) tiles.push({ r: startR, c });
+                }
+            } else {
+                const startC = direction === 'right' ? -1 : COLS;
+                const segStart = randomInt(0, ROWS - 10);
+                const gapCount = randomInt(2, 3);
+                const indices = [];
+                for (let i = segStart; i < segStart + 10; i++) indices.push(i);
+                const gaps = new Set(pickN(indices, gapCount));
+                for (let r = segStart; r < segStart + 10; r++) {
+                    if (!gaps.has(r)) tiles.push({ r, c: startC });
+                }
+            }
+            break;
+        }
+        case 'single_col': {
+            if (isVert) {
+                const col = randomInt(0, COLS - 1);
+                const startR = direction === 'down' ? -3 : ROWS;
+                for (let i = 0; i < 3; i++) tiles.push({ r: startR + i, c: col });
+            } else {
+                const row = randomInt(0, ROWS - 1);
+                const startC = direction === 'right' ? -3 : COLS;
+                for (let i = 0; i < 3; i++) tiles.push({ r: row, c: startC + i });
+            }
+            break;
+        }
+        case 'double_col': {
+            if (isVert) {
+                const col = randomInt(0, COLS - 2);
+                const startR = direction === 'down' ? -3 : ROWS;
+                for (let i = 0; i < 3; i++) {
+                    tiles.push({ r: startR + i, c: col });
+                    tiles.push({ r: startR + i, c: col + 1 });
+                }
+            } else {
+                const row = randomInt(0, ROWS - 2);
+                const startC = direction === 'right' ? -3 : COLS;
+                for (let i = 0; i < 3; i++) {
+                    tiles.push({ r: row, c: startC + i });
+                    tiles.push({ r: row + 1, c: startC + i });
+                }
+            }
+            break;
+        }
+        case 'diagonal': {
+            if (isVert) {
+                const col = randomInt(0, COLS - 5);
+                const startR = direction === 'down' ? -5 : ROWS;
+                const flip = Math.random() < 0.5 ? 1 : -1;
+                for (let i = 0; i < 5; i++) {
+                    const c = flip > 0 ? col + i : (COLS - 1 - col) - i;
+                    tiles.push({ r: startR + i, c: Math.max(0, Math.min(COLS - 1, c)) });
+                }
+            } else {
+                const row = randomInt(0, ROWS - 5);
+                const startC = direction === 'right' ? -5 : COLS;
+                const flip = Math.random() < 0.5 ? 1 : -1;
+                for (let i = 0; i < 5; i++) {
+                    const r = flip > 0 ? row + i : (ROWS - 1 - row) - i;
+                    tiles.push({ r: Math.max(0, Math.min(ROWS - 1, r)), c: startC + i });
+                }
+            }
+            break;
+        }
+        case 'wave': {
+            const offsets = [0, 1, 2, 1, 0, -1];
+            if (isVert) {
+                const col = randomInt(2, COLS - 4);
+                const startR = direction === 'down' ? -6 : ROWS;
+                for (let i = 0; i < 6; i++) {
+                    const c = col + offsets[i];
+                    if (c >= 0 && c < COLS) tiles.push({ r: startR + i, c });
+                }
+            } else {
+                const row = randomInt(2, ROWS - 4);
+                const startC = direction === 'right' ? -6 : COLS;
+                for (let i = 0; i < 6; i++) {
+                    const r = row + offsets[i];
+                    if (r >= 0 && r < ROWS) tiles.push({ r, c: startC + i });
+                }
+            }
+            break;
+        }
+        case 'cross': {
+            if (isVert) {
+                const col = randomInt(1, COLS - 2);
+                const startR = direction === 'down' ? -3 : ROWS;
+                tiles.push({ r: startR + 1, c: col });     // center
+                tiles.push({ r: startR, c: col });          // top
+                tiles.push({ r: startR + 2, c: col });      // bottom
+                tiles.push({ r: startR + 1, c: col - 1 });  // left
+                tiles.push({ r: startR + 1, c: col + 1 });  // right
+            } else {
+                const row = randomInt(1, ROWS - 2);
+                const startC = direction === 'right' ? -3 : COLS;
+                tiles.push({ r: row, c: startC + 1 });      // center
+                tiles.push({ r: row, c: startC });           // near
+                tiles.push({ r: row, c: startC + 2 });       // far
+                tiles.push({ r: row - 1, c: startC + 1 });   // top
+                tiles.push({ r: row + 1, c: startC + 1 });   // bottom
+            }
+            break;
+        }
+    }
+    return tiles;
+}
+
+function getTelegraphPositions(attackTiles, direction) {
+    const positions = [];
+    const seen = new Set();
+    attackTiles.forEach(({ r, c }) => {
+        let tr, tc;
+        switch (direction) {
+            case 'down':  tr = 0; tc = c; break;
+            case 'up':    tr = ROWS - 1; tc = c; break;
+            case 'right': tr = r; tc = 0; break;
+            case 'left':  tr = r; tc = COLS - 1; break;
+        }
+        if (tc >= 0 && tc < COLS && tr >= 0 && tr < ROWS) {
+            const key = `${tr},${tc}`;
+            if (!seen.has(key)) { seen.add(key); positions.push({ r: tr, c: tc }); }
+        }
+    });
+    return positions;
+}
+
+// ─── Player ───
+const player = {
+    row: 10, col: 5, el: null, invincible: false,
+
+    init() {
+        this.el = document.createElement('div');
+        this.el.id = 'player';
+        document.getElementById('game-grid').appendChild(this.el);
+        this.updatePosition();
+    },
+
+    reset() {
+        this.row = Math.floor(ROWS / 2);
+        this.col = Math.floor(COLS / 2);
+        this.invincible = false;
+        this.el.classList.remove('invincible');
+        this.updatePosition();
+    },
+
+    move(dr, dc) {
+        if (game.state !== 'PLAYING') return;
+        const nr = this.row + dr;
+        const nc = this.col + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
+        this.row = nr;
+        this.col = nc;
+        this.updatePosition();
+        this.el.classList.remove('step-flash');
+        void this.el.offsetWidth;
+        this.el.classList.add('step-flash');
+        game.handleBlueStep(this.row, this.col);
+        game.checkPlayerDamage();
+    },
+
+    updatePosition() {
+        if (!this.el) return;
+        const tileSize = game.tiles[0]?.[0]?.offsetWidth || 30;
+        const gap = 2;
+        this.el.style.left = this.col * (tileSize + gap) + 'px';
+        this.el.style.top = this.row * (tileSize + gap) + 'px';
+    },
+
+    startInvincibility() {
+        this.invincible = true;
+        this.el.classList.add('invincible');
+        clearTimeout(this._invTimer);
+        this._invTimer = setTimeout(() => {
+            this.invincible = false;
+            this.el.classList.remove('invincible');
+        }, INVINCIBILITY);
+    }
+};
+
+// ─── Game State ───
+const game = {
+    state: 'MENU',
+    timer: GAME_TIME,
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    blueHits: 0,
+    timesHit: 0,
+    stunsTriggered: 0,
+    highScore: parseInt(localStorage.getItem(LS_KEY)) || 0,
+    activeAttacks: [],
+    blueTiles: [],
+    attackGrid: [],
+    stunActive: false,
+    stunCounter: 0,
+    attackIdCounter: 0,
+    blueIdCounter: 0,
+    tiles: [],
+    tickInterval: null,
+    attackTimeout: null,
+    blueTimeout: null,
+    stunTimeout: null,
+    stunBonusInterval: null,
+    animFrameId: null,
+
+    initAttackGrid() {
+        this.attackGrid = [];
+        for (let r = 0; r < ROWS; r++) this.attackGrid[r] = new Array(COLS).fill(0);
+    },
+
+    markAttack(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+        this.attackGrid[r][c]++;
+        this.tiles[r][c].classList.add('attack');
+    },
+
+    unmarkAttack(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+        this.attackGrid[r][c] = Math.max(0, this.attackGrid[r][c] - 1);
+        if (this.attackGrid[r][c] === 0) this.tiles[r][c].classList.remove('attack');
+    },
+
+    isAttackAt(r, c) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+        return this.attackGrid[r][c] > 0;
+    },
+
+    start() {
+        this.state = 'COUNTDOWN';
+        this.timer = GAME_TIME;
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.blueHits = 0;
+        this.timesHit = 0;
+        this.stunsTriggered = 0;
+        this.stunActive = false;
+        this.stunCounter = 0;
+        this.activeAttacks = [];
+        this.blueTiles = [];
+        this.attackIdCounter = 0;
+        this.blueIdCounter = 0;
+
+        this.clearGrid();
+        this.initAttackGrid();
+        player.reset();
+
+        ui.updateScore(0);
+        ui.updateCombo(0);
+        ui.updateBlueHits(0);
+        ui.updateTimesHit(0);
+        ui.updateTimer(GAME_TIME);
+        ui.updateTimerBar(1);
+        ui.updatePhase(PHASES[0]);
+        ui.updateNPCStatus(false);
+        ui.updateStunBar(0, STUN_HITS);
+
+        ui.showScreen('countdown');
+        sync.send('state', { state: 'countdown' });
+        this.doCountdown(3);
+    },
+
+    doCountdown(n) {
+        if (n <= 0) {
+            ui.showScreen('none');
+            this.state = 'PLAYING';
+            sync.send('state', { state: 'playing' });
+            this.beginGameLoop();
+            return;
+        }
+        sync.send('countdown', { n });
+        const el = document.getElementById('countdown-num');
+        el.textContent = n;
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = 'countPulse 0.6s ease-out';
+        setTimeout(() => this.doCountdown(n - 1), 800);
+    },
+
+    beginGameLoop() {
+        this.tickInterval = setInterval(() => this.tick(), 1000);
+        this.scheduleNextAttack();
+        this.scheduleNextBlue();
+        this.animFrameId = requestAnimationFrame(() => this.gameLoop());
+    },
+
+    tick() {
+        if (this.state !== 'PLAYING') return;
+        this.timer--;
+        ui.updateTimer(this.timer);
+        ui.updateTimerBar(this.timer / GAME_TIME);
+        const phase = this.getCurrentPhase();
+        ui.updatePhase(phase);
+        const pNum = phase === PHASES[0] ? 1 : phase === PHASES[1] ? 2 : 3;
+        sync.send('sync', { timer: this.timer, score: this.score, combo: this.combo, phase: pNum, stunCounter: this.stunCounter, blueHits: this.blueHits, timesHit: this.timesHit });
+        if (this.timer <= 0) this.endGame();
+    },
+
+    gameLoop() {
+        if (this.state !== 'PLAYING') return;
+
+        const now = Date.now();
+
+        // Advance attacks
+        this.activeAttacks.forEach(attack => {
+            if (attack.finished) return;
+            if (now - attack.lastStep >= attack.speed) {
+                this.advanceAttack(attack);
+                attack.lastStep = now;
+            }
+        });
+
+        // Cleanup finished attacks
+        this.activeAttacks = this.activeAttacks.filter(a => !a.finished);
+
+        // Check player damage every frame
+        this.checkPlayerDamage();
+
+        this.animFrameId = requestAnimationFrame(() => this.gameLoop());
+    },
+
+    getCurrentPhase() {
+        const elapsed = GAME_TIME - this.timer;
+        for (let i = PHASES.length - 1; i >= 0; i--) {
+            if (elapsed >= PHASES[i].start) return PHASES[i];
+        }
+        return PHASES[0];
+    },
+
+    // ─── Attack System ───
+    scheduleNextAttack() {
+        if (this.state !== 'PLAYING') return;
+        const phase = this.getCurrentPhase();
+        const jitter = (Math.random() - 0.5) * 800;
+        const delay = Math.max(800, phase.attackInterval + jitter);
+        this.attackTimeout = setTimeout(() => {
+            if (this.state === 'PLAYING') {
+                this.spawnAttack();
+                this.scheduleNextAttack();
+            }
+        }, delay);
+    },
+
+    spawnAttack() {
+        if (this.stunActive) return;
+        const phase = this.getCurrentPhase();
+        const active = this.activeAttacks.filter(a => !a.finished).length;
+        if (active >= phase.maxAttacks) return;
+
+        const direction = phase.directions[randomInt(0, phase.directions.length - 1)];
+        const pattern = phase.patterns[randomInt(0, phase.patterns.length - 1)];
+        const tiles = generateAttackTiles(pattern, direction);
+        if (!tiles || tiles.length === 0) return;
+
+        sync.send('attack', { direction, pattern });
+
+        // Telegraph
+        const telePositions = getTelegraphPositions(tiles, direction);
+        telePositions.forEach(({ r, c }) => {
+            this.tiles[r][c].classList.add('telegraph');
+        });
+
+        setTimeout(() => {
+            // Clear telegraph
+            telePositions.forEach(({ r, c }) => {
+                if (r >= 0 && r < ROWS && c >= 0 && c < COLS)
+                    this.tiles[r][c].classList.remove('telegraph');
+            });
+
+            if (this.state !== 'PLAYING' || this.stunActive) return;
+
+            const attack = {
+                id: ++this.attackIdCounter,
+                tiles: tiles.map(t => ({ ...t })),
+                direction,
+                speed: phase.speed,
+                lastStep: Date.now(),
+                finished: false,
+            };
+
+            // Mark initial visible positions
+            attack.tiles.forEach(({ r, c }) => this.markAttack(r, c));
+
+            // Destroy blue tiles in attack path
+            this.destroyBluesAt(attack.tiles);
+
+            this.activeAttacks.push(attack);
+        }, TELEGRAPH_DURATION);
+    },
+
+    advanceAttack(attack) {
+        // Unmark old positions
+        attack.tiles.forEach(({ r, c }) => this.unmarkAttack(r, c));
+
+        // Move all tiles
+        const d = DIR_DELTA[attack.direction];
+        attack.tiles = attack.tiles.map(t => ({ r: t.r + d.dr, c: t.c + d.dc }));
+
+        // Mark new positions
+        attack.tiles.forEach(({ r, c }) => this.markAttack(r, c));
+
+        // Destroy blue tiles in path
+        this.destroyBluesAt(attack.tiles);
+
+        // Check if all tiles past far edge
+        const allOff = attack.tiles.every(({ r, c }) => {
+            switch (attack.direction) {
+                case 'down':  return r >= ROWS;
+                case 'up':    return r < 0;
+                case 'right': return c >= COLS;
+                case 'left':  return c < 0;
+            }
+        });
+
+        if (allOff) {
+            attack.tiles.forEach(({ r, c }) => this.unmarkAttack(r, c));
+            attack.finished = true;
+        }
+    },
+
+    destroyBluesAt(positions) {
+        positions.forEach(({ r, c }) => {
+            if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+            const idx = this.blueTiles.findIndex(b => b.r === r && b.c === c);
+            if (idx !== -1) {
+                const blue = this.blueTiles[idx];
+                clearTimeout(blue.expireTimer);
+                this.tiles[r][c].classList.remove(blue.cls);
+                this.blueTiles.splice(idx, 1);
+            }
+        });
+    },
+
+    // ─── Blue Tile System ───
+    scheduleNextBlue() {
+        if (this.state !== 'PLAYING') return;
+        const phase = this.getCurrentPhase();
+        const jitter = (Math.random() - 0.5) * 1000;
+        const delay = Math.max(1500, phase.blueInterval + jitter);
+        this.blueTimeout = setTimeout(() => {
+            if (this.state === 'PLAYING') {
+                this.spawnBlueTile(false);
+                this.scheduleNextBlue();
+            }
+        }, delay);
+    },
+
+    spawnBlueTile(isBonus) {
+        for (let attempt = 0; attempt < 50; attempt++) {
+            const r = randomInt(0, ROWS - 1);
+            const c = randomInt(0, COLS - 1);
+            if (this.isAttackAt(r, c)) continue;
+            if (this.blueTiles.some(b => b.r === r && b.c === c)) continue;
+            if (r === player.row && c === player.col) continue;
+
+            const id = ++this.blueIdCounter;
+            const cls = isBonus ? 'stun-bonus' : 'counter';
+            this.tiles[r][c].classList.add(cls);
+
+            const tile = { id, r, c, isBonus, cls };
+            tile.expireTimer = setTimeout(() => this.expireBlueTile(tile), isBonus ? 3500 : 6000);
+            this.blueTiles.push(tile);
+            return;
+        }
+    },
+
+    expireBlueTile(tile) {
+        const idx = this.blueTiles.findIndex(b => b.id === tile.id);
+        if (idx === -1) return;
+        this.blueTiles.splice(idx, 1);
+        if (tile.r >= 0 && tile.r < ROWS && tile.c >= 0 && tile.c < COLS) {
+            this.tiles[tile.r][tile.c].classList.remove(tile.cls);
+        }
+    },
+
+    handleBlueStep(r, c) {
+        const idx = this.blueTiles.findIndex(b => b.r === r && b.c === c);
+        if (idx === -1) return;
+
+        const tile = this.blueTiles[idx];
+        clearTimeout(tile.expireTimer);
+        this.blueTiles.splice(idx, 1);
+
+        // Visual hit
+        this.tiles[r][c].classList.remove(tile.cls);
+        this.tiles[r][c].classList.add('hit');
+        setTimeout(() => this.tiles[r][c].classList.remove('hit'), 200);
+
+        // Score
+        this.combo++;
+        if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+        this.blueHits++;
+
+        const points = tile.isBonus ? STUN_BONUS_POINTS : BLUE_POINTS * Math.min(this.combo, 4);
+        this.score += points;
+
+        // Stun counter (non-bonus only, and not during stun)
+        if (!tile.isBonus && !this.stunActive) {
+            this.stunCounter++;
+            ui.updateStunBar(this.stunCounter, STUN_HITS);
+            if (this.stunCounter >= STUN_HITS) this.triggerStun();
+        }
+
+        ui.updateScore(this.score);
+        ui.updateCombo(this.combo);
+        ui.updateBlueHits(this.blueHits);
+
+        sync.send('blue_step', { combo: this.combo, isBonus: tile.isBonus });
+
+        if (this.combo >= 2) this.showComboPopup(r, c, this.combo);
+        this.showScoreFly(r, c, points, tile.isBonus);
+    },
+
+    // ─── Stun System ───
+    triggerStun() {
+        this.stunActive = true;
+        this.stunCounter = 0;
+        this.stunsTriggered++;
+        sync.send('stun_start');
+
+        // Clear all active attacks
+        this.activeAttacks.forEach(attack => {
+            attack.tiles.forEach(({ r, c }) => this.unmarkAttack(r, c));
+            attack.finished = true;
+        });
+        this.activeAttacks = [];
+
+        // Stop attack spawning
+        clearTimeout(this.attackTimeout);
+
+        // UI
+        ui.updateNPCStatus(true);
+        ui.updateStunBar(STUN_HITS, STUN_HITS);
+
+        // Spawn bonus blue tiles during stun
+        let bonusCount = 0;
+        this.stunBonusInterval = setInterval(() => {
+            if (bonusCount >= 8 || this.state !== 'PLAYING') {
+                clearInterval(this.stunBonusInterval);
+                return;
+            }
+            this.spawnBlueTile(true);
+            bonusCount++;
+        }, 550);
+
+        // End stun
+        this.stunTimeout = setTimeout(() => this.endStun(), STUN_DURATION);
+    },
+
+    endStun() {
+        this.stunActive = false;
+        clearInterval(this.stunBonusInterval);
+        ui.updateNPCStatus(false);
+        sync.send('stun_end');
+        ui.updateStunBar(0, STUN_HITS);
+        // Resume attacks
+        if (this.state === 'PLAYING') this.scheduleNextAttack();
+    },
+
+    // ─── Damage System ───
+    checkPlayerDamage() {
+        if (player.invincible) return;
+        if (this.isAttackAt(player.row, player.col)) this.applyDamage();
+    },
+
+    applyDamage() {
+        if (player.invincible) return;
+        this.score = Math.max(0, this.score + RED_POINTS);
+        this.combo = 0;
+        this.timesHit++;
+        player.startInvincibility();
+        sync.send('player_hit');
+
+        ui.updateScore(this.score);
+        ui.updateCombo(0);
+        ui.updateTimesHit(this.timesHit);
+
+        this.showScoreFly(player.row, player.col, RED_POINTS, false);
+
+        // Grid shake
+        const grid = document.getElementById('game-grid');
+        grid.style.animation = 'none';
+        void grid.offsetWidth;
+        grid.style.animation = 'gridShake 0.3s ease-out';
+    },
+
+    // ─── Visual Popups ───
+    showComboPopup(r, c, combo) {
+        const rect = this.tiles[r][c].getBoundingClientRect();
+        const popup = document.createElement('div');
+        popup.className = 'combo-popup';
+        popup.textContent = `x${Math.min(combo, 4)}!`;
+        popup.style.left = rect.left + rect.width / 2 - 20 + 'px';
+        popup.style.top = rect.top - 10 + 'px';
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 700);
+    },
+
+    showScoreFly(r, c, points, isBonus) {
+        const rect = this.tiles[r][c].getBoundingClientRect();
+        const fly = document.createElement('div');
+        fly.className = 'score-fly';
+        fly.textContent = points > 0 ? `+${points}` : `${points}`;
+        fly.style.left = rect.left + rect.width / 2 + 10 + 'px';
+        fly.style.top = rect.top + 'px';
+        if (points < 0) {
+            fly.style.color = 'var(--attack)';
+            fly.style.fontSize = '1rem';
+        } else if (isBonus) {
+            fly.style.color = 'var(--stun)';
+            fly.style.fontSize = '1.1rem';
+        } else {
+            fly.style.color = points > 100 ? 'var(--stun)' : 'var(--counter)';
+            fly.style.fontSize = points > 100 ? '1rem' : '0.85rem';
+        }
+        fly.style.textShadow = '0 0 8px currentColor';
+        document.body.appendChild(fly);
+        setTimeout(() => fly.remove(), 600);
+    },
+
+    // ─── Cleanup ───
+    clearGrid() {
+        // Clear attack timers
+        this.activeAttacks.forEach(a => { a.finished = true; });
+        this.activeAttacks = [];
+
+        // Clear blue tile timers
+        this.blueTiles.forEach(b => clearTimeout(b.expireTimer));
+        this.blueTiles = [];
+
+        // Clear all timeouts
+        clearInterval(this.tickInterval);
+        clearTimeout(this.attackTimeout);
+        clearTimeout(this.blueTimeout);
+        clearTimeout(this.stunTimeout);
+        clearInterval(this.stunBonusInterval);
+        cancelAnimationFrame(this.animFrameId);
+
+        // Reset tile visuals
+        for (let r = 0; r < ROWS; r++)
+            for (let c = 0; c < COLS; c++) {
+                if (this.tiles[r] && this.tiles[r][c]) {
+                    this.tiles[r][c].className = 'tile';
+                }
+            }
+    },
+
+    endGame() {
+        this.state = 'GAMEOVER';
+        this.clearGrid();
+
+        const isNewRecord = this.score > this.highScore;
+        if (isNewRecord) {
+            this.highScore = this.score;
+            localStorage.setItem(LS_KEY, this.highScore);
+        }
+
+        sync.send('gameover', { score: this.score, blueHits: this.blueHits, timesHit: this.timesHit, stuns: this.stunsTriggered, maxCombo: this.maxCombo });
+        ui.showGameOver(this.score, this.blueHits, this.timesHit, this.stunsTriggered, this.maxCombo, isNewRecord);
+    },
+
+    // ─── Tile press (for mouse/Vuplex) ───
+    handleTilePress(r, c) {
+        if (this.state !== 'PLAYING') return;
+        player.row = r;
+        player.col = c;
+        player.updatePosition();
+        player.el.classList.remove('step-flash');
+        void player.el.offsetWidth;
+        player.el.classList.add('step-flash');
+        this.handleBlueStep(r, c);
+        this.checkPlayerDamage();
+    },
+
+    initVuplex() {
+        if (typeof vuplex !== 'undefined') {
+            vuplex.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data || event.value);
+                    if (data.type === 'down' && data.row !== undefined && data.col !== undefined)
+                        this.handleTilePress(data.row, data.col);
+                } catch (e) { console.warn('Vuplex parse error:', e); }
+            });
+        } else {
+            window.addEventListener('vuplexready', () => this.initVuplex());
+        }
+    }
+};
+
+// ─── UI ───
+const ui = {
+    updateScore(v) { document.getElementById('score-display').textContent = v; },
+    updateBlueHits(v) { document.getElementById('hud-blue-hits').textContent = v; },
+    updateTimesHit(v) { document.getElementById('hud-times-hit').textContent = v; },
+
+    updateCombo(combo) {
+        const mult = Math.min(combo || 0, 4);
+        const el = document.getElementById('combo-display');
+        el.textContent = mult > 0 ? `x${mult}` : 'x1';
+        const colors = ['var(--neon)', 'var(--neon)', '#ffae00', '#ffd700', '#ff003c'];
+        el.style.color = colors[mult] || colors[0];
+        const bar = document.getElementById('combo-bar');
+        bar.style.width = (mult / 4) * 100 + '%';
+        bar.style.background = colors[mult] || colors[0];
+    },
+
+    updateTimer(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        document.getElementById('time-display').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    },
+
+    updateTimerBar(pct) {
+        const bar = document.getElementById('timer-bar');
+        bar.style.width = (pct * 100) + '%';
+        bar.classList.toggle('low', pct < 0.2);
+    },
+
+    updatePhase(phase) {
+        const el = document.getElementById('phase-indicator');
+        el.className = 'phase-badge ' + phase.cssClass;
+        el.innerHTML = `<span class="phase-dot"></span>${phase.name}`;
+    },
+
+    updateNPCStatus(stunned) {
+        const el = document.getElementById('npc-status');
+        if (stunned) {
+            el.textContent = 'STUNNED!';
+            el.className = 'npc-status-text npc-stunned';
+        } else {
+            el.textContent = 'ATTACKING';
+            el.className = 'npc-status-text npc-attacking';
+        }
+    },
+
+    updateStunBar(current, max) {
+        const bar = document.getElementById('stun-bar');
+        const pct = (current / max) * 100;
+        bar.style.width = pct + '%';
+        bar.style.background = current >= max ? 'var(--stun)' : 'var(--counter)';
+        document.getElementById('stun-count').textContent = `${current} / ${max}`;
+    },
+
+    showScreen(name) {
+        document.getElementById('menu-screen').classList.toggle('hidden', name !== 'menu');
+        document.getElementById('gameover-screen').classList.toggle('hidden', name !== 'gameover');
+        document.getElementById('countdown-screen').classList.toggle('hidden', name !== 'countdown');
+    },
+
+    showGameOver(score, blueHits, timesHit, stuns, maxCombo, isNewRecord) {
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('stat-blue').textContent = blueHits;
+        document.getElementById('stat-hit').textContent = timesHit;
+        document.getElementById('stat-stuns').textContent = stuns;
+        document.getElementById('stat-combo').textContent = `x${Math.min(maxCombo, 4)}`;
+
+        const badge = document.getElementById('new-record-badge');
+        badge.classList.toggle('hidden', !isNewRecord);
+        badge.style.display = isNewRecord ? 'inline-block' : 'none';
+        document.getElementById('menu-high-score').textContent = game.highScore;
+        document.getElementById('hud-high-score').textContent = game.highScore;
+
+        this.showScreen('gameover');
+    }
+};
+
+// ─── Build Grid ───
+function buildGrid() {
+    const grid = document.getElementById('game-grid');
+    grid.innerHTML = '';
+    game.tiles = [];
+    for (let r = 0; r < ROWS; r++) {
+        game.tiles[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.addEventListener('pointerdown', (e) => { e.preventDefault(); game.handleTilePress(r, c); });
+            grid.appendChild(tile);
+            game.tiles[r][c] = tile;
+        }
+    }
+}
+
+// ─── Keyboard ───
+const keysHeld = {};
+let keyRepeatInterval = null;
+
+document.addEventListener('keydown', (e) => {
+    if (keysHeld[e.key]) return;
+    keysHeld[e.key] = true;
+    const dir = getDirection(e.key);
+    if (dir) {
+        e.preventDefault();
+        player.move(dir.dr, dir.dc);
+        clearInterval(keyRepeatInterval);
+        keyRepeatInterval = setInterval(() => {
+            if (keysHeld[e.key]) player.move(dir.dr, dir.dc);
+            else clearInterval(keyRepeatInterval);
+        }, 80);
+    }
+    if (e.key === 'p' || e.key === 'P') { e.preventDefault(); toggleView(); return; }
+    if ((e.key === ' ' || e.key === 'Enter') && (game.state === 'MENU' || game.state === 'GAMEOVER')) {
+        e.preventDefault();
+        game.start();
+    }
+});
+
+document.addEventListener('keyup', (e) => { delete keysHeld[e.key]; });
+
+function getDirection(key) {
+    switch (key.toLowerCase()) {
+        case 'w': case 'arrowup':    return { dr: -1, dc: 0 };
+        case 's': case 'arrowdown':  return { dr: 1, dc: 0 };
+        case 'a': case 'arrowleft':  return { dr: 0, dc: -1 };
+        case 'd': case 'arrowright': return { dr: 0, dc: 1 };
+        default: return null;
+    }
+}
+
+// ─── Projector (Integrated) ───
+const ENTRY_SIDE = { down: 'top', up: 'bottom', right: 'left', left: 'right' };
+let projectorActive = false;
+
+const projector = {
+    inited: false,
+    isStunned: false,
+
+    init() {
+        if (this.inited) return;
+        this.inited = true;
+        const c = document.getElementById('pj-particles');
+        for (let i = 0; i < 18; i++) {
+            const p = document.createElement('div');
+            p.className = 'pj-particle';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.bottom = '-10px';
+            p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
+            p.style.animationDuration = (8 + Math.random() * 12) + 's';
+            p.style.animationDelay = Math.random() * 10 + 's';
+            c.appendChild(p);
+        }
+    },
+
+    handleEvent(msg) {
+        switch (msg.type) {
+            case 'state': this.onState(msg.state); break;
+            case 'countdown': this.onCountdown(msg.n); break;
+            case 'attack': this.onAttack(msg.direction); break;
+            case 'stun_start': this.onStunStart(); break;
+            case 'stun_end': this.onStunEnd(); break;
+            case 'player_hit': this.onPlayerHit(); break;
+            case 'blue_step': this.onBlueStep(msg.isBonus); break;
+            case 'sync': this.onSync(msg); break;
+            case 'gameover': this.onGameOver(msg); break;
+        }
+    },
+
+    onState(state) {
+        if (state === 'playing' || state === 'menu') this.resetNPC();
+    },
+
+    onCountdown(n) {
+        // Projector can mirror countdown
+    },
+
+    onAttack(direction) {
+        if (this.isStunned) return;
+        const side = ENTRY_SIDE[direction] || 'top';
+        const av = document.getElementById('pj-avatar');
+        av.classList.add('attacking');
+        av.classList.remove('lunge-top','lunge-bottom','lunge-left','lunge-right');
+        void av.offsetWidth;
+        av.classList.add('lunge-' + side);
+        setTimeout(() => av.classList.remove('attacking', 'lunge-' + side), 500);
+
+        const edge = document.getElementById('pj-edge-' + side);
+        const arrow = document.getElementById('pj-arrow-' + side);
+        edge.classList.add('active');
+        arrow.classList.add('active');
+        setTimeout(() => { edge.classList.remove('active'); arrow.classList.remove('active'); }, 1200);
+    },
+
+    onStunStart() {
+        this.isStunned = true;
+        document.getElementById('pj-avatar').classList.add('stunned');
+        document.getElementById('pj-avatar').classList.remove('attacking');
+        document.getElementById('pj-aura').classList.add('stunned');
+        document.getElementById('pj-npc-name').classList.add('stunned');
+        const st = document.getElementById('pj-npc-status');
+        st.textContent = 'STUNNED!'; st.className = 'pj-npc-status stun';
+        this.showAlert('STUN!', 'var(--stun)');
+        this.flash('gold');
+    },
+
+    onStunEnd() {
+        this.isStunned = false;
+        document.getElementById('pj-avatar').classList.remove('stunned');
+        document.getElementById('pj-aura').classList.remove('stunned');
+        document.getElementById('pj-npc-name').classList.remove('stunned');
+        const st = document.getElementById('pj-npc-status');
+        st.textContent = 'ATTACKING'; st.className = 'pj-npc-status atk';
+    },
+
+    onPlayerHit() {
+        this.flash('red');
+        this.showAlert('HIT!', 'var(--attack)');
+    },
+
+    onBlueStep(isBonus) {
+        this.flash(isBonus ? 'gold' : 'blue');
+    },
+
+    onSync(d) {
+        if (d.timer !== undefined) {
+            const m = Math.floor(d.timer / 60), s = d.timer % 60;
+            const el = document.getElementById('pj-timer');
+            el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+            el.classList.toggle('low', d.timer < 18);
+        }
+        if (d.score !== undefined) document.getElementById('pj-score').textContent = d.score;
+        if (d.combo !== undefined) {
+            const mult = Math.min(d.combo || 0, 4);
+            const el = document.getElementById('pj-combo');
+            el.textContent = mult > 0 ? `x${mult}` : 'x1';
+            const c = ['var(--neon)','var(--neon)','#ffae00','#ffd700','#ff003c'];
+            el.style.color = c[mult] || c[0];
+        }
+        if (d.phase !== undefined) {
+            const el = document.getElementById('pj-phase');
+            el.textContent = `PHASE ${d.phase}`;
+            const pc = {1:'var(--neon)',2:'#ffae00',3:'var(--attack)'};
+            el.style.color = pc[d.phase] || 'var(--neon)';
+            el.style.borderColor = pc[d.phase] || 'rgba(180,77,255,0.3)';
+        }
+        if (d.stunCounter !== undefined) {
+            const bar = document.getElementById('pj-stun-bar');
+            bar.style.width = (d.stunCounter / 5) * 100 + '%';
+            bar.classList.toggle('full', d.stunCounter >= 5);
+            document.getElementById('pj-stun-count').textContent = `${d.stunCounter}/5`;
+        }
+    },
+
+    onGameOver(d) {
+        this.resetNPC();
+    },
+
+    resetNPC() {
+        this.isStunned = false;
+        document.getElementById('pj-avatar').className = 'pj-avatar';
+        document.getElementById('pj-aura').className = 'pj-aura';
+        document.getElementById('pj-npc-name').className = 'pj-npc-name';
+        const st = document.getElementById('pj-npc-status');
+        st.textContent = 'ATTACKING'; st.className = 'pj-npc-status atk';
+        document.getElementById('pj-timer').textContent = '1:30';
+        document.getElementById('pj-timer').classList.remove('low');
+        document.getElementById('pj-score').textContent = '0';
+        document.getElementById('pj-combo').textContent = 'x1';
+        document.getElementById('pj-combo').style.color = 'var(--neon)';
+        document.getElementById('pj-phase').textContent = 'PHASE 1';
+        document.getElementById('pj-stun-bar').style.width = '0%';
+        document.getElementById('pj-stun-count').textContent = '0/5';
+    },
+
+    showAlert(text, color) {
+        const el = document.getElementById('pj-alert');
+        el.textContent = text; el.style.color = color;
+        el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 1200);
+    },
+
+    flash(type) {
+        const el = document.getElementById('pj-flash');
+        el.className = 'pj-flash'; void el.offsetWidth; el.classList.add(type);
+        setTimeout(() => el.className = 'pj-flash', 600);
+    }
+};
+
+function toggleView() {
+    projectorActive = !projectorActive;
+    projector.init();
+    document.getElementById('arcade-cabinet').style.display = projectorActive ? 'none' : '';
+    document.getElementById('projector-view').classList.toggle('active', projectorActive);
+    document.getElementById('view-toggle').textContent = projectorActive ? 'FLOOR VIEW' : 'PROJECTOR';
+    if (!projectorActive) player.updatePosition();
+}
+
+// ─── Init ───
+function init() {
+    buildGrid();
+    game.initAttackGrid();
+    player.init();
+    document.getElementById('menu-high-score').textContent = game.highScore;
+    document.getElementById('hud-high-score').textContent = game.highScore;
+    game.initVuplex();
+    ui.showScreen('menu');
+    sync.send('state', { state: 'menu' });
+    window.addEventListener('resize', () => player.updatePosition());
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ninja Dodge — Projector Display</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon: #b44dff;
+            --neon-dim: #9933dd;
+            --attack: #ff003c;
+            --counter: #00aaff;
+            --stun: #ffd700;
+            --bg: #04040c;
+            --panel: rgba(12, 12, 26, 0.85);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+        }
+
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* ═══ Background Grid ═══ */
+        .bg-grid {
+            position: fixed; inset: 0;
+            background-image:
+                linear-gradient(rgba(180,77,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(180,77,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        /* ═══ Particles ═══ */
+        .particle {
+            position: fixed;
+            width: 3px; height: 3px;
+            background: rgba(180, 77, 255, 0.4);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleFloat linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% { transform: translateY(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 0.5; }
+            100% { transform: translateY(calc(-100vh - 20px)); opacity: 0; }
+        }
+
+        /* ═══ Top HUD ═══ */
+        .hud-top {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 40px;
+            z-index: 40;
+        }
+
+        .hud-phase {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 3px;
+            padding: 8px 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(180,77,255,0.3);
+            background: rgba(180,77,255,0.08);
+            color: var(--neon);
+        }
+
+        .hud-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.5rem;
+            letter-spacing: 8px;
+            color: var(--neon);
+            text-shadow: 0 0 30px rgba(180,77,255,0.3);
+        }
+
+        .hud-timer {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 2.5rem;
+            color: #fff;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.15);
+        }
+
+        .hud-timer.low { color: var(--attack); text-shadow: 0 0 20px rgba(255,0,60,0.3); }
+
+        /* ═══ NPC Area ═══ */
+        .npc-area {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -55%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .npc-aura {
+            position: absolute;
+            width: 350px; height: 350px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(180,77,255,0.12) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            animation: auraPulse 3s ease-in-out infinite;
+        }
+
+        .npc-aura.stunned {
+            background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%);
+            animation: auraStunPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes auraPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+            50% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+        }
+
+        @keyframes auraStunPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+        }
+
+        /* NPC Avatar */
+        .npc-avatar {
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 38% 38%, #2a0050, #0d001a 75%);
+            border: 3px solid rgba(180,77,255,0.5);
+            box-shadow: 0 0 50px rgba(180,77,255,0.15), inset 0 0 40px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+            animation: npcFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes npcFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Mask band */
+        .npc-mask {
+            position: absolute;
+            top: 40%; left: 0; right: 0;
+            height: 20%;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Eyes */
+        .npc-eye {
+            position: absolute;
+            top: 46%;
+            width: 32px; height: 9px;
+            background: var(--attack);
+            border-radius: 50%;
+            box-shadow: 0 0 18px var(--attack), 0 0 6px #fff;
+            transition: all 0.15s;
+        }
+
+        .npc-eye.left { left: 25%; transform: rotate(-10deg); }
+        .npc-eye.right { right: 25%; transform: rotate(10deg); }
+
+        /* Attack state */
+        .npc-avatar.attacking {
+            border-color: rgba(255, 0, 60, 0.7);
+            box-shadow: 0 0 60px rgba(255, 0, 60, 0.25);
+        }
+
+        .npc-avatar.attacking .npc-eye {
+            box-shadow: 0 0 25px var(--attack), 0 0 10px #fff;
+            height: 12px;
+        }
+
+        /* Stun state */
+        .npc-avatar.stunned {
+            border-color: rgba(255, 215, 0, 0.7) !important;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.2) !important;
+            animation: npcStunShake 0.15s infinite alternate !important;
+        }
+
+        .npc-avatar.stunned .npc-eye {
+            background: var(--stun);
+            box-shadow: 0 0 15px var(--stun);
+            width: 18px; height: 18px;
+            border-radius: 2px;
+            transform: rotate(45deg) !important;
+        }
+
+        .npc-avatar.stunned .npc-eye.left { left: 28%; top: 43%; }
+        .npc-avatar.stunned .npc-eye.right { right: 28%; top: 43%; }
+
+        @keyframes npcStunShake {
+            0% { transform: translateX(-4px) rotate(-2deg); }
+            100% { transform: translateX(4px) rotate(2deg); }
+        }
+
+        /* Lunge animations */
+        .npc-avatar.lunge-top { animation: lungeUp 0.45s ease-out !important; }
+        .npc-avatar.lunge-bottom { animation: lungeDown 0.45s ease-out !important; }
+        .npc-avatar.lunge-left { animation: lungeLeft 0.45s ease-out !important; }
+        .npc-avatar.lunge-right { animation: lungeRight 0.45s ease-out !important; }
+
+        @keyframes lungeUp { 0%{transform:translateY(0)}25%{transform:translateY(-40px) scale(1.08)}100%{transform:translateY(0)} }
+        @keyframes lungeDown { 0%{transform:translateY(0)}25%{transform:translateY(40px) scale(1.08)}100%{transform:translateY(0)} }
+        @keyframes lungeLeft { 0%{transform:translateX(0)}25%{transform:translateX(-40px) scale(1.08)}100%{transform:translateX(0)} }
+        @keyframes lungeRight { 0%{transform:translateX(0)}25%{transform:translateX(40px) scale(1.08)}100%{transform:translateX(0)} }
+
+        /* NPC Label */
+        .npc-label {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.2rem;
+            letter-spacing: 6px;
+            color: #555;
+            margin-top: 20px;
+            transition: color 0.3s;
+        }
+
+        .npc-label.stunned { color: var(--stun); }
+
+        /* NPC Status text */
+        .npc-status {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            margin-top: 6px;
+            transition: color 0.3s;
+        }
+
+        .npc-status.atk { color: var(--attack); }
+        .npc-status.stun { color: var(--stun); animation: stunTextPulse 0.4s infinite alternate; }
+
+        @keyframes stunTextPulse { 0%{opacity:1} 100%{opacity:0.4} }
+
+        /* ═══ Edge Attack Indicators ═══ */
+        .edge-ind {
+            position: fixed;
+            z-index: 30;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+        }
+
+        .edge-ind.top { top: 0; left: 0; right: 0; height: 100px; background: linear-gradient(to bottom, rgba(255,0,60,0.5), transparent); }
+        .edge-ind.bottom { bottom: 0; left: 0; right: 0; height: 100px; background: linear-gradient(to top, rgba(255,0,60,0.5), transparent); }
+        .edge-ind.left { top: 0; bottom: 0; left: 0; width: 100px; background: linear-gradient(to right, rgba(255,0,60,0.5), transparent); }
+        .edge-ind.right { top: 0; bottom: 0; right: 0; width: 100px; background: linear-gradient(to left, rgba(255,0,60,0.5), transparent); }
+
+        .edge-ind.active { opacity: 1; }
+
+        /* Edge arrows */
+        .edge-arrow {
+            position: fixed;
+            z-index: 31;
+            opacity: 0;
+            pointer-events: none;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 3rem;
+            color: var(--attack);
+            text-shadow: 0 0 20px var(--attack);
+            transition: opacity 0.15s;
+        }
+
+        .edge-arrow.top { top: 20px; left: 50%; transform: translateX(-50%); }
+        .edge-arrow.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); }
+        .edge-arrow.left { left: 20px; top: 50%; transform: translateY(-50%); }
+        .edge-arrow.right { right: 20px; top: 50%; transform: translateY(-50%); }
+
+        .edge-arrow.active { opacity: 1; animation: arrowPulse 0.3s ease-out; }
+
+        @keyframes arrowPulse {
+            0% { transform: translateX(-50%) scale(1.4); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+
+        .edge-arrow.left.active { animation: arrowPulseY 0.3s ease-out; }
+        .edge-arrow.right.active { animation: arrowPulseY 0.3s ease-out; }
+
+        @keyframes arrowPulseY {
+            0% { transform: translateY(-50%) scale(1.4); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-50%) scale(1); }
+        }
+
+        /* ═══ Center Alert ═══ */
+        .center-alert {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(3rem, 8vw, 6rem);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 60;
+            text-shadow: 0 0 40px currentColor;
+            letter-spacing: 8px;
+        }
+
+        .center-alert.show {
+            animation: alertPop 1s ease-out forwards;
+        }
+
+        @keyframes alertPop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            15% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            30% { transform: translate(-50%, -50%) scale(1); }
+            80% { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        /* ═══ Bottom HUD ═══ */
+        .hud-bottom {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 50px;
+            padding: 24px 40px;
+            z-index: 40;
+        }
+
+        .hud-block {
+            text-align: center;
+        }
+
+        .hud-block-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            color: #444;
+            margin-bottom: 6px;
+        }
+
+        .hud-block-value {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* Stun bar */
+        .stun-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stun-bar-track {
+            width: 200px; height: 10px;
+            background: #1a1a30;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .stun-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--counter);
+            border-radius: 5px;
+            transition: width 0.3s, background 0.3s;
+        }
+
+        .stun-bar-fill.full { background: var(--stun); }
+
+        .stun-count {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #666;
+            min-width: 40px;
+        }
+
+        /* Score */
+        .hud-score {
+            font-size: 3rem;
+            color: #fff;
+            letter-spacing: 3px;
+        }
+
+        .hud-combo {
+            font-size: 2rem;
+            color: var(--neon);
+        }
+
+        /* ═══ Screen Flash ═══ */
+        .screen-flash {
+            position: fixed; inset: 0;
+            z-index: 55;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .screen-flash.red { background: rgba(255, 0, 60, 0.3); animation: flashOnce 0.4s ease-out; }
+        .screen-flash.gold { background: rgba(255, 215, 0, 0.2); animation: flashOnce 0.5s ease-out; }
+        .screen-flash.blue { background: rgba(0, 170, 255, 0.15); animation: flashOnce 0.3s ease-out; }
+
+        @keyframes flashOnce {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* ═══ Overlays ═══ */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4, 4, 12, 0.95);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 0.4s;
+        }
+
+        .overlay.hidden { opacity: 0; pointer-events: none; }
+
+        .waiting-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+
+        /* Connection indicator */
+        .conn-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .conn-dot.off { background: #ff003c; box-shadow: 0 0 8px #ff003c; }
+        .conn-dot.on { background: #00ff41; box-shadow: 0 0 8px #00ff41; }
+
+        /* Game over stats */
+        .go-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 40px;
+            margin-top: 30px;
+        }
+
+        .go-stat {
+            text-align: center;
+        }
+
+        .go-stat-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            letter-spacing: 3px;
+            color: #555;
+        }
+
+        .go-stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 2rem;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="bg-grid"></div>
+    <div id="particles"></div>
+
+    <!-- Top HUD -->
+    <div class="hud-top">
+        <div id="hud-phase" class="hud-phase">PHASE 1</div>
+        <div class="hud-title">NINJA DODGE</div>
+        <div id="hud-timer" class="hud-timer">1:30</div>
+    </div>
+
+    <!-- NPC Area -->
+    <div class="npc-area">
+        <div id="npc-aura" class="npc-aura"></div>
+        <div id="npc-avatar" class="npc-avatar">
+            <div class="npc-mask"></div>
+            <div class="npc-eye left"></div>
+            <div class="npc-eye right"></div>
+        </div>
+        <div id="npc-label" class="npc-label">SHADOW</div>
+        <div id="npc-status-text" class="npc-status atk">ATTACKING</div>
+    </div>
+
+    <!-- Edge Indicators -->
+    <div id="edge-top" class="edge-ind top"></div>
+    <div id="edge-bottom" class="edge-ind bottom"></div>
+    <div id="edge-left" class="edge-ind left"></div>
+    <div id="edge-right" class="edge-ind right"></div>
+
+    <!-- Edge Arrows -->
+    <div id="arrow-top" class="edge-arrow top">▼</div>
+    <div id="arrow-bottom" class="edge-arrow bottom">▲</div>
+    <div id="arrow-left" class="edge-arrow left">▶</div>
+    <div id="arrow-right" class="edge-arrow right">◀</div>
+
+    <!-- Center Alert -->
+    <div id="center-alert" class="center-alert"></div>
+
+    <!-- Screen Flash -->
+    <div id="screen-flash" class="screen-flash"></div>
+
+    <!-- Bottom HUD -->
+    <div class="hud-bottom">
+        <div class="hud-block">
+            <div class="hud-block-label">STUN METER</div>
+            <div class="stun-bar-wrap">
+                <div class="stun-bar-track">
+                    <div id="stun-bar" class="stun-bar-fill"></div>
+                </div>
+                <span id="stun-count" class="stun-count">0/5</span>
+            </div>
+        </div>
+        <div class="hud-block">
+            <div class="hud-block-label">SCORE</div>
+            <div id="hud-score" class="hud-block-value hud-score">0</div>
+        </div>
+        <div class="hud-block">
+            <div class="hud-block-label">COMBO</div>
+            <div id="hud-combo" class="hud-block-value hud-combo">x1</div>
+        </div>
+    </div>
+
+    <!-- Waiting Overlay -->
+    <div id="overlay-wait" class="overlay">
+        <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,5vw,3.5rem); color:var(--neon); letter-spacing:6px; text-shadow:0 0 30px rgba(180,77,255,0.4);">
+            NINJA DODGE
+        </div>
+        <div style="font-family:'Orbitron',sans-serif; font-size:0.7rem; letter-spacing:8px; color:#444; margin-top:6px;">
+            PROJECTOR DISPLAY
+        </div>
+        <div style="width:120px; height:1px; background:linear-gradient(90deg,transparent,var(--neon),transparent); opacity:0.3; margin:24px auto;"></div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+            <span id="conn-dot" class="conn-dot off"></span>
+            <span style="font-family:'Orbitron',sans-serif; font-size:0.7rem; color:#555; letter-spacing:2px;">
+                <span id="conn-text">WAITING FOR FLOOR</span><span class="waiting-dots"></span>
+            </span>
+        </div>
+        <div style="font-size:0.8rem; color:#333; margin-top:20px;">
+            เปิด Ninja_Dodge.html บน tab อื่น แล้วกด START
+        </div>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div id="overlay-countdown" class="overlay hidden">
+        <span id="cd-num" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:10rem; color:var(--neon); text-shadow:0 0 60px rgba(180,77,255,0.5);">3</span>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="overlay-gameover" class="overlay hidden">
+        <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(2rem,5vw,3rem); color:var(--attack); text-shadow:0 0 30px rgba(255,0,60,0.3); letter-spacing:6px;">
+            TIME'S UP
+        </div>
+        <div style="width:120px; height:1px; background:linear-gradient(90deg,transparent,var(--attack),transparent); opacity:0.3; margin:16px auto;"></div>
+        <div style="font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#555; letter-spacing:3px; margin-top:10px;">FINAL SCORE</div>
+        <div id="go-score" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(3rem,8vw,6rem); color:#fff; line-height:1; margin-top:4px;">0</div>
+
+        <div class="go-stats">
+            <div class="go-stat">
+                <div class="go-stat-label">BLUE STOMPED</div>
+                <div id="go-blue" class="go-stat-value" style="color:var(--counter);">0</div>
+            </div>
+            <div class="go-stat">
+                <div class="go-stat-label">TIMES HIT</div>
+                <div id="go-hit" class="go-stat-value" style="color:var(--attack);">0</div>
+            </div>
+            <div class="go-stat">
+                <div class="go-stat-label">STUNS</div>
+                <div id="go-stuns" class="go-stat-value" style="color:var(--stun);">0</div>
+            </div>
+            <div class="go-stat">
+                <div class="go-stat-label">BEST COMBO</div>
+                <div id="go-combo" class="go-stat-value" style="color:var(--neon);">x1</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ═══════════════════════════════════════════
+// Ninja Dodge — Projector Display
+// Syncs with Floor via BroadcastChannel
+// ═══════════════════════════════════════════
+
+// Direction mapping: floor attack direction → projector entry side
+const ENTRY_SIDE = { down: 'top', up: 'bottom', right: 'left', left: 'right' };
+
+let connected = false;
+let currentState = 'menu';
+let isStunned = false;
+
+// ─── Sync Receiver ───
+let channel = null;
+try { channel = new BroadcastChannel('ninja-dodge-sync'); } catch (e) {}
+
+if (channel) {
+    channel.onmessage = (e) => handleSync(e.data);
+}
+
+// Fallback: localStorage
+window.addEventListener('storage', (e) => {
+    if (e.key === 'ninja-dodge-sync') {
+        try { handleSync(JSON.parse(e.newValue)); } catch (err) {}
+    }
+});
+
+function handleSync(data) {
+    if (!data || !data.type) return;
+
+    if (!connected) {
+        connected = true;
+        document.getElementById('conn-dot').className = 'conn-dot on';
+        document.getElementById('conn-text').textContent = 'CONNECTED';
+    }
+
+    switch (data.type) {
+        case 'state': handleState(data.state); break;
+        case 'countdown': showCountdown(data.n); break;
+        case 'attack': showAttack(data.direction, data.pattern); break;
+        case 'stun_start': showStunStart(); break;
+        case 'stun_end': showStunEnd(); break;
+        case 'player_hit': showPlayerHit(); break;
+        case 'blue_step': showBlueStep(data.combo, data.isBonus); break;
+        case 'sync': updateHUD(data); break;
+        case 'gameover': showGameOver(data); break;
+    }
+}
+
+// ─── State Changes ───
+function handleState(state) {
+    currentState = state;
+    const wait = document.getElementById('overlay-wait');
+    const cd = document.getElementById('overlay-countdown');
+    const go = document.getElementById('overlay-gameover');
+
+    switch (state) {
+        case 'menu':
+            wait.classList.remove('hidden');
+            cd.classList.add('hidden');
+            go.classList.add('hidden');
+            resetNPC();
+            break;
+        case 'countdown':
+            wait.classList.add('hidden');
+            cd.classList.remove('hidden');
+            go.classList.add('hidden');
+            resetNPC();
+            break;
+        case 'playing':
+            wait.classList.add('hidden');
+            cd.classList.add('hidden');
+            go.classList.add('hidden');
+            break;
+        case 'gameover':
+            // Handled by gameover event
+            break;
+    }
+}
+
+// ─── Countdown ───
+function showCountdown(n) {
+    const el = document.getElementById('cd-num');
+    el.textContent = n;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = 'alertPop 0.7s ease-out';
+}
+
+// ─── Attack ───
+function showAttack(direction, pattern) {
+    if (isStunned) return;
+
+    const side = ENTRY_SIDE[direction] || 'top';
+
+    // NPC lunge animation
+    const avatar = document.getElementById('npc-avatar');
+    avatar.classList.add('attacking');
+    avatar.classList.remove('lunge-top', 'lunge-bottom', 'lunge-left', 'lunge-right');
+    void avatar.offsetWidth;
+    avatar.classList.add('lunge-' + side);
+
+    setTimeout(() => {
+        avatar.classList.remove('attacking', 'lunge-' + side);
+    }, 500);
+
+    // Edge indicator
+    const edge = document.getElementById('edge-' + side);
+    edge.classList.add('active');
+    setTimeout(() => edge.classList.remove('active'), 1200);
+
+    // Edge arrow
+    const arrow = document.getElementById('arrow-' + side);
+    arrow.classList.add('active');
+    setTimeout(() => arrow.classList.remove('active'), 1200);
+}
+
+// ─── Stun ───
+function showStunStart() {
+    isStunned = true;
+
+    const avatar = document.getElementById('npc-avatar');
+    const aura = document.getElementById('npc-aura');
+    const label = document.getElementById('npc-label');
+    const status = document.getElementById('npc-status-text');
+
+    avatar.classList.add('stunned');
+    avatar.classList.remove('attacking');
+    aura.classList.add('stunned');
+    label.classList.add('stunned');
+    status.textContent = 'STUNNED!';
+    status.className = 'npc-status stun';
+
+    // Center alert
+    showCenterAlert('STUN!', 'var(--stun)');
+
+    // Gold flash
+    screenFlash('gold');
+}
+
+function showStunEnd() {
+    isStunned = false;
+
+    const avatar = document.getElementById('npc-avatar');
+    const aura = document.getElementById('npc-aura');
+    const label = document.getElementById('npc-label');
+    const status = document.getElementById('npc-status-text');
+
+    avatar.classList.remove('stunned');
+    aura.classList.remove('stunned');
+    label.classList.remove('stunned');
+    status.textContent = 'ATTACKING';
+    status.className = 'npc-status atk';
+}
+
+// ─── Player Hit ───
+function showPlayerHit() {
+    screenFlash('red');
+    showCenterAlert('HIT!', 'var(--attack)');
+}
+
+// ─── Blue Step ───
+function showBlueStep(combo, isBonus) {
+    if (isBonus) {
+        screenFlash('gold');
+    } else {
+        screenFlash('blue');
+    }
+}
+
+// ─── HUD Update ───
+function updateHUD(data) {
+    // Timer
+    if (data.timer !== undefined) {
+        const m = Math.floor(data.timer / 60);
+        const s = data.timer % 60;
+        const el = document.getElementById('hud-timer');
+        el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        el.classList.toggle('low', data.timer < 18);
+    }
+
+    // Score
+    if (data.score !== undefined) {
+        document.getElementById('hud-score').textContent = data.score;
+    }
+
+    // Combo
+    if (data.combo !== undefined) {
+        const mult = Math.min(data.combo || 0, 4);
+        const el = document.getElementById('hud-combo');
+        el.textContent = mult > 0 ? `x${mult}` : 'x1';
+        const colors = ['var(--neon)', 'var(--neon)', '#ffae00', '#ffd700', '#ff003c'];
+        el.style.color = colors[mult] || colors[0];
+    }
+
+    // Phase
+    if (data.phase !== undefined) {
+        const el = document.getElementById('hud-phase');
+        el.textContent = `PHASE ${data.phase}`;
+        const pColors = { 1: 'var(--neon)', 2: '#ffae00', 3: 'var(--attack)' };
+        el.style.color = pColors[data.phase] || 'var(--neon)';
+        el.style.borderColor = pColors[data.phase] || 'rgba(180,77,255,0.3)';
+    }
+
+    // Stun bar
+    if (data.stunCounter !== undefined) {
+        const bar = document.getElementById('stun-bar');
+        const pct = (data.stunCounter / 5) * 100;
+        bar.style.width = pct + '%';
+        bar.classList.toggle('full', data.stunCounter >= 5);
+        document.getElementById('stun-count').textContent = `${data.stunCounter}/5`;
+    }
+}
+
+// ─── Game Over ───
+function showGameOver(data) {
+    currentState = 'gameover';
+
+    document.getElementById('overlay-wait').classList.add('hidden');
+    document.getElementById('overlay-countdown').classList.add('hidden');
+    document.getElementById('overlay-gameover').classList.remove('hidden');
+
+    document.getElementById('go-score').textContent = data.score || 0;
+    document.getElementById('go-blue').textContent = data.blueHits || 0;
+    document.getElementById('go-hit').textContent = data.timesHit || 0;
+    document.getElementById('go-stuns').textContent = data.stuns || 0;
+    document.getElementById('go-combo').textContent = `x${Math.min(data.maxCombo || 1, 4)}`;
+
+    resetNPC();
+}
+
+// ─── Helpers ───
+function resetNPC() {
+    isStunned = false;
+    const avatar = document.getElementById('npc-avatar');
+    const aura = document.getElementById('npc-aura');
+    const label = document.getElementById('npc-label');
+    const status = document.getElementById('npc-status-text');
+
+    avatar.className = 'npc-avatar';
+    aura.className = 'npc-aura';
+    label.className = 'npc-label';
+    status.textContent = 'ATTACKING';
+    status.className = 'npc-status atk';
+
+    // Reset HUD
+    document.getElementById('hud-timer').textContent = '1:30';
+    document.getElementById('hud-timer').classList.remove('low');
+    document.getElementById('hud-score').textContent = '0';
+    document.getElementById('hud-combo').textContent = 'x1';
+    document.getElementById('hud-combo').style.color = 'var(--neon)';
+    document.getElementById('hud-phase').textContent = 'PHASE 1';
+    document.getElementById('hud-phase').style.color = 'var(--neon)';
+    document.getElementById('stun-bar').style.width = '0%';
+    document.getElementById('stun-count').textContent = '0/5';
+}
+
+function showCenterAlert(text, color) {
+    const el = document.getElementById('center-alert');
+    el.textContent = text;
+    el.style.color = color;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+function screenFlash(type) {
+    const el = document.getElementById('screen-flash');
+    el.className = 'screen-flash';
+    void el.offsetWidth;
+    el.classList.add(type);
+    setTimeout(() => el.className = 'screen-flash', 600);
+}
+
+// ─── Particles ───
+function createParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + 'vw';
+        p.style.top = (100 + Math.random() * 20) + 'vh';
+        p.style.animationDuration = (8 + Math.random() * 12) + 's';
+        p.style.animationDelay = Math.random() * 10 + 's';
+        p.style.width = (2 + Math.random() * 3) + 'px';
+        p.style.height = p.style.width;
+        p.style.opacity = 0.2 + Math.random() * 0.4;
+        container.appendChild(p);
+    }
+}
+
+createParticles();
+</script>
+</body>
+</html>
