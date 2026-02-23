@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floor Config Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon: #00ff41;
+            --neon-dim: #00cc33;
+            --cyan: #00e5ff;
+            --warn: #ffae00;
+            --danger: #ff003c;
+            --spawn: #ffe033;
+            --display-zone: #3388ff;
+            --play-zone: #00ff41;
+            --inactive: #2a2a40;
+            --bg: #06060f;
+            --panel: #0c0c1a;
+            --panel-border: #1a1a35;
+            --floor: #12122a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: stretch;
+            user-select: none;
+        }
+
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* Scanline */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.012) 2px, rgba(0,255,65,0.012) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* Layout */
+        #app {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            gap: 14px;
+        }
+
+        /* Panels */
+        .side-panel {
+            width: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #1a1a35 transparent;
+        }
+
+        .panel-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+        }
+
+        .panel-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        /* Inputs */
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .config-row:last-child { margin-bottom: 0; }
+
+        .config-label {
+            font-size: 0.75rem;
+            color: #888;
+            min-width: 65px;
+            flex-shrink: 0;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 6px 10px;
+            background: #0a0a18;
+            border: 1px solid #1a1a35;
+            border-radius: 6px;
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .config-input:focus { border-color: var(--neon); box-shadow: 0 0 8px rgba(0,255,65,0.15); }
+
+        .config-input-sm {
+            width: 60px;
+            text-align: center;
+        }
+
+        .config-unit {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            color: #444;
+            letter-spacing: 1px;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: scale(0.97); }
+
+        .btn-neon {
+            color: #000;
+            background: linear-gradient(135deg, var(--neon) 0%, var(--neon-dim) 100%);
+            box-shadow: 0 0 12px rgba(0,255,65,0.2);
+        }
+
+        .btn-neon:hover { box-shadow: 0 0 20px rgba(0,255,65,0.4); }
+
+        .btn-outline {
+            color: #888;
+            background: transparent;
+            border: 1px solid #2a2a45;
+        }
+
+        .btn-outline:hover { border-color: var(--neon); color: var(--neon); }
+
+        .btn-danger {
+            color: #fff;
+            background: rgba(255,0,60,0.15);
+            border: 1px solid rgba(255,0,60,0.3);
+        }
+
+        .btn-danger:hover { background: rgba(255,0,60,0.25); }
+
+        .btn-full { width: 100%; }
+
+        /* Preset buttons */
+        .preset-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .preset-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 5px 10px;
+            background: #0a0a18;
+            border: 1px solid #1a1a35;
+            border-radius: 5px;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.15s;
+            letter-spacing: 1px;
+        }
+
+        .preset-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+        .preset-btn.active { border-color: var(--neon); color: var(--neon); background: rgba(0,255,65,0.06); }
+
+        /* Zone tool palette */
+        .tool-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            background: #0a0a18;
+            border: 1px solid #1a1a35;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 6px;
+        }
+
+        .tool-btn:last-child { margin-bottom: 0; }
+
+        .tool-btn:hover { border-color: #3a3a55; }
+
+        .tool-btn.active { border-color: var(--cyan); background: rgba(0,229,255,0.04); }
+
+        .tool-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tool-name {
+            font-size: 0.75rem;
+            color: #aaa;
+            flex: 1;
+        }
+
+        .tool-key {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.45rem;
+            color: #444;
+            padding: 2px 6px;
+            background: #1a1a30;
+            border: 1px solid #2a2a45;
+            border-radius: 3px;
+        }
+
+        /* Center grid area */
+        #grid-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        #grid-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #grid-info {
+            font-size: 0.55rem;
+            color: #555;
+            letter-spacing: 2px;
+        }
+
+        #physical-info {
+            font-size: 0.5rem;
+            color: #444;
+            letter-spacing: 1px;
+        }
+
+        /* Grid */
+        #config-grid {
+            display: grid;
+            gap: 2px;
+            padding: 6px;
+            background: linear-gradient(180deg, #0a0a18 0%, #08081a 100%);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0,255,65,0.03), inset 0 0 60px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            border-radius: 2px;
+            transition: background-color 0.08s, box-shadow 0.08s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell:hover { filter: brightness(1.3); }
+
+        .cell[data-zone="inactive"] {
+            background-color: var(--inactive);
+        }
+
+        .cell[data-zone="play"] {
+            background-color: rgba(0, 255, 65, 0.25);
+            box-shadow: inset 0 0 4px rgba(0, 255, 65, 0.15);
+        }
+
+        .cell[data-zone="display"] {
+            background-color: rgba(51, 136, 255, 0.3);
+            box-shadow: inset 0 0 4px rgba(51, 136, 255, 0.2);
+        }
+
+        .cell[data-zone="spawn"] {
+            background-color: rgba(255, 224, 51, 0.35);
+            box-shadow: inset 0 0 4px rgba(255, 224, 51, 0.2);
+        }
+
+        .cell[data-zone="spawn"]::after {
+            content: 'S';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.45rem;
+            font-weight: 900;
+            color: rgba(255, 224, 51, 0.7);
+        }
+
+        /* Role labels on display zones */
+        .cell-role {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.35rem;
+            font-weight: 700;
+            color: rgba(51, 136, 255, 0.6);
+            letter-spacing: 1px;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Zone summary */
+        .zone-stat {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.75rem;
+        }
+
+        .zone-stat-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #888;
+        }
+
+        .zone-stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #aaa;
+        }
+
+        /* JSON output */
+        #json-output {
+            width: 100%;
+            min-height: 120px;
+            max-height: 220px;
+            padding: 10px;
+            background: #0a0a18;
+            border: 1px solid #1a1a35;
+            border-radius: 6px;
+            color: var(--neon);
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.6rem;
+            line-height: 1.4;
+            resize: none;
+            outline: none;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #1a1a35 transparent;
+        }
+
+        #json-output:focus { border-color: var(--neon); }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            padding: 10px 24px;
+            background: var(--panel);
+            border: 1px solid var(--neon);
+            border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--neon);
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0,255,65,0.2);
+            z-index: 500;
+            transition: transform 0.3s ease-out;
+            pointer-events: none;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #1a1a35, transparent);
+            margin: 4px 0;
+        }
+
+        /* Display role select */
+        .role-select {
+            font-family: 'Kanit', sans-serif;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            background: #0a0a18;
+            border: 1px solid #1a1a35;
+            border-radius: 4px;
+            color: #aaa;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .role-select:focus { border-color: var(--display-zone); }
+
+        /* Eraser pattern */
+        .cell[data-zone="inactive"] {
+            background: repeating-conic-gradient(var(--inactive) 0% 25%, #222238 0% 50%) 50% / 8px 8px;
+        }
+
+        @keyframes fadeSlide {
+            from { transform: translateY(12px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <div id="app">
+
+        <!-- LEFT PANEL: Config -->
+        <div class="side-panel">
+            <!-- Title -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:0.85rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(0,255,65,0.3);">FLOOR</div>
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:0.85rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(0,255,65,0.3); margin-top:-2px;">CONFIG</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.4rem; color:#444; letter-spacing:4px; margin-top:4px;">LED FLOOR EDITOR</div>
+            </div>
+
+            <!-- Physical Size -->
+            <div class="panel-card">
+                <div class="panel-label">PHYSICAL SIZE</div>
+                <div class="config-row">
+                    <span class="config-label">Width</span>
+                    <input id="physW" type="number" class="config-input config-input-sm" value="3" min="1" max="20" step="0.5">
+                    <span class="config-unit">M</span>
+                </div>
+                <div class="config-row">
+                    <span class="config-label">Length</span>
+                    <input id="physH" type="number" class="config-input config-input-sm" value="6" min="1" max="20" step="0.5">
+                    <span class="config-unit">M</span>
+                </div>
+            </div>
+
+            <!-- Grid Size -->
+            <div class="panel-card">
+                <div class="panel-label">GRID SIZE</div>
+                <div class="config-row">
+                    <span class="config-label">Cols</span>
+                    <input id="gridCols" type="number" class="config-input config-input-sm" value="10" min="2" max="30">
+                </div>
+                <div class="config-row">
+                    <span class="config-label">Rows</span>
+                    <input id="gridRows" type="number" class="config-input config-input-sm" value="20" min="2" max="40">
+                </div>
+                <div class="config-row">
+                    <span class="config-label">Cell</span>
+                    <input id="cellSize" type="number" class="config-input config-input-sm" value="30" min="5" max="100" step="5">
+                    <span class="config-unit">CM</span>
+                </div>
+
+                <div class="divider" style="margin:8px 0;"></div>
+
+                <div class="panel-label" style="margin-bottom:6px;">PRESETS</div>
+                <div class="preset-grid">
+                    <button class="preset-btn" onclick="applyPreset(10,20,3,6,30)">10x20</button>
+                    <button class="preset-btn" onclick="applyPreset(15,6,4.5,1.8,30)">15x6</button>
+                    <button class="preset-btn" onclick="applyPreset(6,15,1.8,4.5,30)">6x15</button>
+                    <button class="preset-btn" onclick="applyPreset(10,6,3,1.8,30)">10x6</button>
+                    <button class="preset-btn" onclick="applyPreset(8,8,2.4,2.4,30)">8x8</button>
+                </div>
+            </div>
+
+            <button class="btn btn-neon btn-full" onclick="rebuildGrid()">APPLY GRID</button>
+
+            <!-- Zone Tool -->
+            <div class="panel-card">
+                <div class="panel-label">PAINT TOOL</div>
+
+                <div class="tool-btn active" data-tool="play" onclick="selectTool('play')">
+                    <div class="tool-swatch" style="background:rgba(0,255,65,0.4); box-shadow:0 0 6px rgba(0,255,65,0.3);"></div>
+                    <span class="tool-name">Play Zone</span>
+                    <span class="tool-key">1</span>
+                </div>
+
+                <div class="tool-btn" data-tool="display" onclick="selectTool('display')">
+                    <div class="tool-swatch" style="background:rgba(51,136,255,0.5); box-shadow:0 0 6px rgba(51,136,255,0.3);"></div>
+                    <span class="tool-name">Display Zone</span>
+                    <span class="tool-key">2</span>
+                </div>
+
+                <div class="tool-btn" data-tool="spawn" onclick="selectTool('spawn')">
+                    <div class="tool-swatch" style="background:rgba(255,224,51,0.5); box-shadow:0 0 6px rgba(255,224,51,0.3);"></div>
+                    <span class="tool-name">Spawn Point</span>
+                    <span class="tool-key">3</span>
+                </div>
+
+                <div class="tool-btn" data-tool="inactive" onclick="selectTool('inactive')">
+                    <div class="tool-swatch" style="background:var(--inactive);"></div>
+                    <span class="tool-name">Inactive / Erase</span>
+                    <span class="tool-key">4</span>
+                </div>
+
+                <div class="divider" style="margin:6px 0 4px;"></div>
+
+                <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                    <span style="font-size:0.65rem; color:#555;">Display Role:</span>
+                    <select id="displayRole" class="role-select">
+                        <option value="scoreboard">Scoreboard</option>
+                        <option value="timer">Timer</option>
+                        <option value="phase">Phase</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Zone summary -->
+            <div class="panel-card">
+                <div class="panel-label">ZONE SUMMARY</div>
+                <div class="zone-stat">
+                    <span class="zone-stat-label">
+                        <div class="tool-swatch" style="width:10px;height:10px;background:rgba(0,255,65,0.4);"></div>
+                        Play
+                    </span>
+                    <span id="count-play" class="zone-stat-value" style="color:var(--neon);">0</span>
+                </div>
+                <div class="zone-stat">
+                    <span class="zone-stat-label">
+                        <div class="tool-swatch" style="width:10px;height:10px;background:rgba(51,136,255,0.5);"></div>
+                        Display
+                    </span>
+                    <span id="count-display" class="zone-stat-value" style="color:var(--display-zone);">0</span>
+                </div>
+                <div class="zone-stat">
+                    <span class="zone-stat-label">
+                        <div class="tool-swatch" style="width:10px;height:10px;background:rgba(255,224,51,0.5);"></div>
+                        Spawn
+                    </span>
+                    <span id="count-spawn" class="zone-stat-value" style="color:var(--spawn);">0</span>
+                </div>
+                <div class="zone-stat">
+                    <span class="zone-stat-label">
+                        <div class="tool-swatch" style="width:10px;height:10px;background:var(--inactive);"></div>
+                        Inactive
+                    </span>
+                    <span id="count-inactive" class="zone-stat-value" style="color:#666;">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: Grid Canvas -->
+        <div id="grid-area">
+            <div id="grid-header">
+                <div id="grid-info">10 x 20</div>
+                <div id="physical-info">3.0m x 6.0m &middot; CELL 30cm</div>
+            </div>
+            <div id="config-grid"></div>
+            <div style="font-family:'Orbitron',sans-serif; font-size:0.45rem; color:#333; letter-spacing:3px; margin-top:2px;">CLICK OR DRAG TO PAINT ZONES</div>
+        </div>
+
+        <!-- RIGHT PANEL: Export -->
+        <div class="side-panel">
+            <!-- Quick Actions -->
+            <div class="panel-card">
+                <div class="panel-label">ACTIONS</div>
+                <button class="btn btn-neon btn-full" onclick="fillAllPlay()" style="margin-bottom:6px;">FILL ALL PLAY</button>
+                <button class="btn btn-outline btn-full" onclick="clearAll()" style="margin-bottom:6px;">CLEAR ALL</button>
+                <button class="btn btn-outline btn-full" onclick="autoLayout()">AUTO LAYOUT</button>
+            </div>
+
+            <!-- Export -->
+            <div class="panel-card" style="flex:1; display:flex; flex-direction:column;">
+                <div class="panel-label">JSON CONFIG</div>
+                <textarea id="json-output" readonly></textarea>
+                <div style="display:flex; gap:6px; margin-top:8px;">
+                    <button class="btn btn-neon" style="flex:1;" onclick="copyJSON()">COPY</button>
+                    <button class="btn btn-outline" style="flex:1;" onclick="downloadJSON()">SAVE</button>
+                </div>
+                <div class="divider" style="margin:8px 0;"></div>
+                <button class="btn btn-outline btn-full" onclick="importJSON()">IMPORT JSON</button>
+            </div>
+
+            <!-- Game ID -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.5rem; color:#333; letter-spacing:3px;">FORTAL INTERACTIVE</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.4rem; color:#222; letter-spacing:2px; margin-top:2px;">LED FLOOR CONFIG v1.0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">COPIED</div>
+
+<script>
+// ═══════════════════════════════════════════
+// Floor Config Editor
+// LED Floor Visual Configuration Tool
+// ═══════════════════════════════════════════
+
+let COLS = 10;
+let ROWS = 20;
+let currentTool = 'play';
+let isPainting = false;
+let cells = []; // cells[r][c] = { el, zone, role }
+let spawnTeamCounter = 0;
+
+// ─── Presets ───
+function applyPreset(cols, rows, physW, physH, cellSize) {
+    document.getElementById('gridCols').value = cols;
+    document.getElementById('gridRows').value = rows;
+    document.getElementById('physW').value = physW;
+    document.getElementById('physH').value = physH;
+    document.getElementById('cellSize').value = cellSize;
+
+    // Highlight active preset
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    rebuildGrid();
+}
+
+// ─── Select Tool ───
+function selectTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tool === tool);
+    });
+}
+
+// ─── Build Grid ───
+function rebuildGrid() {
+    COLS = parseInt(document.getElementById('gridCols').value) || 10;
+    ROWS = parseInt(document.getElementById('gridRows').value) || 20;
+    const physW = parseFloat(document.getElementById('physW').value) || 3;
+    const physH = parseFloat(document.getElementById('physH').value) || 6;
+    const cellCm = parseInt(document.getElementById('cellSize').value) || 30;
+
+    // Clamp
+    COLS = Math.max(2, Math.min(30, COLS));
+    ROWS = Math.max(2, Math.min(40, ROWS));
+
+    // Compute cell pixel size to fit viewport
+    const gridArea = document.getElementById('grid-area');
+    const availW = gridArea.clientWidth - 40;
+    const availH = gridArea.clientHeight - 70;
+    const maxCellW = Math.floor((availW - (COLS - 1) * 2 - 12) / COLS);
+    const maxCellH = Math.floor((availH - (ROWS - 1) * 2 - 12) / ROWS);
+    const cellPx = Math.max(8, Math.min(50, Math.min(maxCellW, maxCellH)));
+
+    const grid = document.getElementById('config-grid');
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = `repeat(${COLS}, ${cellPx}px)`;
+    grid.style.gridTemplateRows = `repeat(${ROWS}, ${cellPx}px)`;
+
+    cells = [];
+    spawnTeamCounter = 0;
+
+    for (let r = 0; r < ROWS; r++) {
+        cells[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            const el = document.createElement('div');
+            el.className = 'cell';
+            el.dataset.zone = 'inactive';
+            el.dataset.r = r;
+            el.dataset.c = c;
+
+            el.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                isPainting = true;
+                paintCell(r, c);
+            });
+
+            el.addEventListener('pointerenter', () => {
+                if (isPainting) paintCell(r, c);
+            });
+
+            grid.appendChild(el);
+            cells[r][c] = { el, zone: 'inactive', role: null, team: null };
+        }
+    }
+
+    // Update info
+    document.getElementById('grid-info').textContent = `${COLS} x ${ROWS}`;
+    document.getElementById('physical-info').textContent = `${physW}m x ${physH}m \u00B7 CELL ${cellCm}cm`;
+
+    updateSummary();
+    updateJSON();
+}
+
+// ─── Paint ───
+function paintCell(r, c) {
+    const cell = cells[r][c];
+    const el = cell.el;
+
+    // Remove old role label if any
+    const oldLabel = el.querySelector('.cell-role');
+    if (oldLabel) oldLabel.remove();
+
+    cell.zone = currentTool;
+    el.dataset.zone = currentTool;
+
+    if (currentTool === 'display') {
+        cell.role = document.getElementById('displayRole').value;
+        const label = document.createElement('div');
+        label.className = 'cell-role';
+        label.textContent = cell.role.toUpperCase().slice(0, 5);
+        el.appendChild(label);
+    } else {
+        cell.role = null;
+    }
+
+    if (currentTool === 'spawn') {
+        // Assign team number based on existing spawns
+        const existingSpawns = [];
+        for (let rr = 0; rr < ROWS; rr++)
+            for (let cc = 0; cc < COLS; cc++)
+                if (cells[rr][cc].zone === 'spawn' && !(rr === r && cc === c))
+                    existingSpawns.push(cells[rr][cc].team);
+        cell.team = existingSpawns.length + 1;
+    } else {
+        cell.team = null;
+    }
+
+    updateSummary();
+    updateJSON();
+}
+
+// ─── Global pointer up ───
+document.addEventListener('pointerup', () => { isPainting = false; });
+
+// ─── Summary ───
+function updateSummary() {
+    let counts = { play: 0, display: 0, spawn: 0, inactive: 0 };
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+            counts[cells[r][c].zone]++;
+
+    document.getElementById('count-play').textContent = counts.play;
+    document.getElementById('count-display').textContent = counts.display;
+    document.getElementById('count-spawn').textContent = counts.spawn;
+    document.getElementById('count-inactive').textContent = counts.inactive;
+}
+
+// ─── JSON ───
+function updateJSON() {
+    const physW = parseFloat(document.getElementById('physW').value) || 3;
+    const physH = parseFloat(document.getElementById('physH').value) || 6;
+    const cellCm = parseInt(document.getElementById('cellSize').value) || 30;
+
+    // Compute play zone bounding box
+    let playMinR = ROWS, playMinC = COLS, playMaxR = -1, playMaxC = -1;
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+            if (cells[r][c].zone === 'play') {
+                playMinR = Math.min(playMinR, r);
+                playMinC = Math.min(playMinC, c);
+                playMaxR = Math.max(playMaxR, r);
+                playMaxC = Math.max(playMaxC, c);
+            }
+
+    const playZone = playMaxR >= 0 ? {
+        x: playMinC, y: playMinR,
+        w: playMaxC - playMinC + 1,
+        h: playMaxR - playMinR + 1
+    } : null;
+
+    // Display zones — group by contiguous rectangles (simplified: group by role)
+    const displayByRole = {};
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+            if (cells[r][c].zone === 'display') {
+                const role = cells[r][c].role || 'info';
+                if (!displayByRole[role]) displayByRole[role] = [];
+                displayByRole[role].push({ r, c });
+            }
+
+    const displayZones = [];
+    for (const [role, cellList] of Object.entries(displayByRole)) {
+        let minR = ROWS, minC = COLS, maxR = -1, maxC = -1;
+        cellList.forEach(({r, c}) => {
+            minR = Math.min(minR, r);
+            minC = Math.min(minC, c);
+            maxR = Math.max(maxR, r);
+            maxC = Math.max(maxC, c);
+        });
+        displayZones.push({
+            x: minC, y: minR,
+            w: maxC - minC + 1,
+            h: maxR - minR + 1,
+            role
+        });
+    }
+
+    // Spawns
+    const spawns = [];
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+            if (cells[r][c].zone === 'spawn')
+                spawns.push({ x: c, y: r, team: cells[r][c].team || spawns.length + 1 });
+
+    const config = {
+        floor: {
+            physicalWidth: physW,
+            physicalHeight: physH,
+            cols: COLS,
+            rows: ROWS,
+            cellSize: cellCm
+        },
+        zones: {
+            play: playZone,
+            display: displayZones,
+            spawns: spawns
+        }
+    };
+
+    document.getElementById('json-output').value = JSON.stringify(config, null, 2);
+}
+
+// ─── Actions ───
+function fillAllPlay() {
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++) {
+            cells[r][c].zone = 'play';
+            cells[r][c].role = null;
+            cells[r][c].team = null;
+            cells[r][c].el.dataset.zone = 'play';
+            const label = cells[r][c].el.querySelector('.cell-role');
+            if (label) label.remove();
+        }
+    updateSummary();
+    updateJSON();
+    showToast('ALL PLAY ZONE');
+}
+
+function clearAll() {
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++) {
+            cells[r][c].zone = 'inactive';
+            cells[r][c].role = null;
+            cells[r][c].team = null;
+            cells[r][c].el.dataset.zone = 'inactive';
+            const label = cells[r][c].el.querySelector('.cell-role');
+            if (label) label.remove();
+        }
+    updateSummary();
+    updateJSON();
+    showToast('CLEARED');
+}
+
+function autoLayout() {
+    clearAll();
+
+    const isLandscape = COLS > ROWS;
+    // Use 1 row/col for display if grid is small, 2 if big enough
+    const displaySize = (isLandscape ? ROWS : ROWS) >= 10 ? 2 : 1;
+
+    function setCell(r, c, zone, role) {
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+        cells[r][c].zone = zone;
+        cells[r][c].role = role;
+        cells[r][c].el.dataset.zone = zone;
+        if (zone === 'display' && role) {
+            const label = document.createElement('div');
+            label.className = 'cell-role';
+            label.textContent = role.toUpperCase().slice(0, 5);
+            cells[r][c].el.appendChild(label);
+        }
+    }
+
+    if (isLandscape) {
+        // Landscape: left cols = scoreboard, right cols = timer, middle = play
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (c < displaySize) setCell(r, c, 'display', 'scoreboard');
+                else if (c >= COLS - displaySize) setCell(r, c, 'display', 'timer');
+                else setCell(r, c, 'play', null);
+            }
+        }
+        // Spawns: inner corners of play area
+        const spawnPositions = [
+            { r: 0, c: displaySize },
+            { r: 0, c: COLS - displaySize - 1 },
+            { r: ROWS - 1, c: displaySize },
+            { r: ROWS - 1, c: COLS - displaySize - 1 }
+        ];
+        spawnPositions.forEach((pos, i) => {
+            setCell(pos.r, pos.c, 'spawn', null);
+            if (pos.r < ROWS && pos.c < COLS) cells[pos.r][pos.c].team = i + 1;
+        });
+    } else {
+        // Portrait / Square: top rows = scoreboard, bottom rows = timer, middle = play
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (r < displaySize) setCell(r, c, 'display', 'scoreboard');
+                else if (r >= ROWS - displaySize) setCell(r, c, 'display', 'timer');
+                else setCell(r, c, 'play', null);
+            }
+        }
+        // Spawns: inner corners of play area
+        const playTop = displaySize;
+        const playBot = ROWS - displaySize - 1;
+        const spawnPositions = [
+            { r: playTop, c: 1 },
+            { r: playTop, c: COLS - 2 },
+            { r: playBot, c: 1 },
+            { r: playBot, c: COLS - 2 }
+        ];
+        spawnPositions.forEach((pos, i) => {
+            setCell(pos.r, pos.c, 'spawn', null);
+            if (pos.r < ROWS && pos.c < COLS) cells[pos.r][pos.c].team = i + 1;
+        });
+    }
+
+    updateSummary();
+    updateJSON();
+    showToast('AUTO LAYOUT APPLIED');
+}
+
+// ─── Copy / Save / Import ───
+function copyJSON() {
+    const text = document.getElementById('json-output').value;
+    navigator.clipboard.writeText(text).then(() => showToast('COPIED TO CLIPBOARD'));
+}
+
+function downloadJSON() {
+    const text = document.getElementById('json-output').value;
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `floor-config-${COLS}x${ROWS}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('SAVED');
+}
+
+function importJSON() {
+    const input = prompt('Paste JSON config:');
+    if (!input) return;
+
+    try {
+        const config = JSON.parse(input);
+        if (!config.floor || !config.zones) throw new Error('Invalid format');
+
+        // Apply floor settings
+        document.getElementById('physW').value = config.floor.physicalWidth || 3;
+        document.getElementById('physH').value = config.floor.physicalHeight || 6;
+        document.getElementById('gridCols').value = config.floor.cols || 10;
+        document.getElementById('gridRows').value = config.floor.rows || 20;
+        document.getElementById('cellSize').value = config.floor.cellSize || 30;
+
+        rebuildGrid();
+
+        // Apply zones
+        if (config.zones.play) {
+            const pz = config.zones.play;
+            for (let r = pz.y; r < pz.y + pz.h && r < ROWS; r++)
+                for (let c = pz.x; c < pz.x + pz.w && c < COLS; c++) {
+                    cells[r][c].zone = 'play';
+                    cells[r][c].el.dataset.zone = 'play';
+                }
+        }
+
+        if (config.zones.display) {
+            config.zones.display.forEach(dz => {
+                for (let r = dz.y; r < dz.y + dz.h && r < ROWS; r++)
+                    for (let c = dz.x; c < dz.x + dz.w && c < COLS; c++) {
+                        cells[r][c].zone = 'display';
+                        cells[r][c].role = dz.role || 'info';
+                        cells[r][c].el.dataset.zone = 'display';
+                        const label = document.createElement('div');
+                        label.className = 'cell-role';
+                        label.textContent = (dz.role || 'INFO').toUpperCase().slice(0, 5);
+                        cells[r][c].el.appendChild(label);
+                    }
+            });
+        }
+
+        if (config.zones.spawns) {
+            config.zones.spawns.forEach(sp => {
+                if (sp.y < ROWS && sp.x < COLS) {
+                    cells[sp.y][sp.x].zone = 'spawn';
+                    cells[sp.y][sp.x].team = sp.team || 1;
+                    cells[sp.y][sp.x].el.dataset.zone = 'spawn';
+                }
+            });
+        }
+
+        updateSummary();
+        updateJSON();
+        showToast('IMPORTED');
+    } catch (e) {
+        showToast('INVALID JSON');
+    }
+}
+
+// ─── Toast ───
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+// ─── Keyboard Shortcuts ───
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    switch (e.key) {
+        case '1': selectTool('play'); break;
+        case '2': selectTool('display'); break;
+        case '3': selectTool('spawn'); break;
+        case '4': selectTool('inactive'); break;
+        case 'f': fillAllPlay(); break;
+        case 'x': clearAll(); break;
+        case 'a': autoLayout(); break;
+        case 'c':
+            if (e.ctrlKey || e.metaKey) { e.preventDefault(); copyJSON(); }
+            break;
+    }
+});
+
+// ─── Init ───
+function init() {
+    rebuildGrid();
+}
+
+window.addEventListener('resize', () => rebuildGrid());
+init();
+</script>
+</body>
+</html>

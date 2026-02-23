@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Light Step: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 10;
+            --rows: 20;
+            --tile-size: clamp(16px, 3.4vh, 34px);
+            --gap-size: 2px;
+            --neon: #00ff41;
+            --neon-dim: #00cc33;
+            --cyan: #00e5ff;
+            --warn: #ffae00;
+            --danger: #ff003c;
+            --hit: #ffffff;
+            --bg: #06060f;
+            --panel: #0c0c1a;
+            --panel-border: #1a1a35;
+            --floor: #12122a;
+            --floor-hover: #1c1c3a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* ═══ Scanline CRT ═══ */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.012) 2px, rgba(0,255,65,0.012) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* ═══ 3-Column Arcade Layout ═══ */
+        #arcade-cabinet {
+            display: flex;
+            align-items: stretch;
+            gap: 16px;
+            height: calc(100vh - 24px);
+            max-height: 100vh;
+            padding: 12px;
+        }
+
+        .side-panel {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .panel-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+        }
+
+        .panel-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .panel-value {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* ═══ Grid ═══ */
+        #grid-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap-size);
+            padding: 6px;
+            background: linear-gradient(180deg, #0a0a18 0%, #08081a 100%);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0,255,65,0.03), inset 0 0 60px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .tile {
+            width: 100%; height: 100%;
+            background-color: var(--floor);
+            border-radius: 2px;
+            transition: background-color 0.12s, box-shadow 0.12s, transform 0.08s;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .tile:hover { background-color: var(--floor-hover); }
+
+        .tile.active {
+            background-color: var(--neon);
+            box-shadow: 0 0 14px var(--neon), inset 0 0 6px rgba(255,255,255,0.25);
+            animation: lightPulse 0.8s ease-in-out infinite alternate;
+        }
+
+        .tile.warning { animation: warnFlash 0.2s infinite alternate; }
+
+        .tile.hit {
+            background-color: var(--hit) !important;
+            box-shadow: 0 0 28px var(--hit) !important;
+            transform: scale(1.06);
+            animation: none;
+        }
+
+        .tile.missed {
+            background-color: var(--danger) !important;
+            box-shadow: 0 0 18px var(--danger) !important;
+            animation: none;
+        }
+
+        /* ═══ Timer Bar (horizontal, under grid) ═══ */
+        #timer-bar-wrap {
+            width: 100%;
+            max-width: calc(var(--cols) * (var(--tile-size) + var(--gap-size)) + 12px);
+            height: 4px;
+            background: #1a1a30;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, var(--neon), var(--neon-dim));
+            border-radius: 2px;
+            transition: width 0.3s linear, background 0.3s;
+        }
+
+        #timer-bar.low { background: linear-gradient(90deg, var(--danger), #ff6600); }
+
+        /* ═══ Phase Badge ═══ */
+        .phase-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .phase-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            animation: dotPulse 1.5s infinite;
+        }
+
+        .phase-1 { background: rgba(0,255,65,0.1); color: var(--neon); border: 1px solid rgba(0,255,65,0.2); }
+        .phase-1 .phase-dot { background: var(--neon); box-shadow: 0 0 6px var(--neon); }
+        .phase-2 { background: rgba(255,174,0,0.1); color: var(--warn); border: 1px solid rgba(255,174,0,0.2); }
+        .phase-2 .phase-dot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+        .phase-3 { background: rgba(255,0,60,0.1); color: var(--danger); border: 1px solid rgba(255,0,60,0.2); }
+        .phase-3 .phase-dot { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+        /* ═══ Combo Meter ═══ */
+        .combo-bar-track {
+            width: 100%;
+            height: 6px;
+            background: #1a1a30;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .combo-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.2s, background 0.2s;
+            width: 0%;
+            background: var(--neon);
+        }
+
+        /* ═══ Player ═══ */
+        #player {
+            position: absolute;
+            width: var(--tile-size);
+            height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #33ddff 0%, #0099cc 60%, #006688 100%);
+            border: 2px solid rgba(255,255,255,0.8);
+            box-shadow: 0 0 12px var(--cyan), 0 0 3px #fff;
+            z-index: 30;
+            transition: left 0.07s ease-out, top 0.07s ease-out;
+            pointer-events: none;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        #player::after {
+            content: '';
+            width: 40%; height: 40%;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 20%; left: 22%;
+            filter: blur(1px);
+        }
+
+        #player.step-flash { animation: stepPulse 0.12s ease-out; }
+
+        /* ═══ Overlays ═══ */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,4,12,0.94);
+            backdrop-filter: blur(16px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay.hidden { display: none; }
+
+        .btn-play {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #000;
+            background: linear-gradient(135deg, var(--neon) 0%, var(--neon-dim) 100%);
+            border: none;
+            padding: 14px 48px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0,255,65,0.3), 0 4px 20px rgba(0,0,0,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-play::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 35px rgba(0,255,65,0.5), 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .btn-play:hover::after { transform: translateX(100%); }
+        .btn-play:active { transform: translateY(0) scale(0.98); }
+
+        /* ═══ Menu Decorations ═══ */
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            letter-spacing: 6px;
+            color: var(--neon);
+            text-shadow: 0 0 30px rgba(0,255,65,0.4), 0 0 60px rgba(0,255,65,0.15);
+            line-height: 1;
+        }
+
+        .menu-subtitle {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 8px;
+            color: #444;
+            margin-top: 6px;
+        }
+
+        .menu-divider {
+            width: 120px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+            margin: 16px auto;
+        }
+
+        .high-score-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 18px;
+            background: rgba(255,200,0,0.06);
+            border: 1px solid rgba(255,200,0,0.15);
+            border-radius: 8px;
+        }
+
+        .phase-info-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 0;
+            font-size: 0.75rem;
+            color: #555;
+        }
+
+        .phase-info-row .phase-badge { font-size: 0.5rem; padding: 2px 8px; }
+
+        /* ═══ Game Over Stats Card ═══ */
+        .stats-card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 16px 20px;
+            width: 280px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #1a1a30;
+        }
+
+        .stat-row:last-child { border-bottom: none; }
+
+        /* ═══ Score/Combo Popups ═══ */
+        .combo-popup {
+            position: fixed;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--neon);
+            text-shadow: 0 0 10px var(--neon);
+            pointer-events: none;
+            z-index: 50;
+            animation: comboFloat 0.7s ease-out forwards;
+        }
+
+        .score-fly {
+            position: fixed;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            pointer-events: none;
+            z-index: 200;
+            animation: comboFloat 0.6s ease-out forwards;
+        }
+
+        /* ═══ Keyframes ═══ */
+        @keyframes lightPulse {
+            0% { filter: brightness(1); }
+            100% { filter: brightness(1.2); }
+        }
+
+        @keyframes warnFlash {
+            0% { background-color: var(--neon); box-shadow: 0 0 14px var(--neon); }
+            100% { background-color: var(--warn); box-shadow: 0 0 16px var(--warn); }
+        }
+
+        @keyframes comboFloat {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-36px) scale(1.2); opacity: 0; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(24px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes countPulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        @keyframes stepPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); box-shadow: 0 0 22px var(--cyan); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes fadeSlide {
+            from { transform: translateY(16px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ═══ Controls hint keys ═══ */
+        .key-cap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px; height: 22px;
+            background: #1a1a30;
+            border: 1px solid #2a2a45;
+            border-radius: 4px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: #888;
+        }
+
+        .key-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            margin-top: 8px;
+        }
+
+        .key-row { display: flex; gap: 2px; }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <!-- ═══ ARCADE CABINET LAYOUT ═══ -->
+    <div id="arcade-cabinet">
+
+        <!-- ─── LEFT PANEL ─── -->
+        <div class="side-panel">
+            <!-- Title -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:1rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(0,255,65,0.3);">LIGHT</div>
+                <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:1rem; color:var(--neon); letter-spacing:3px; text-shadow:0 0 15px rgba(0,255,65,0.3); margin-top:-2px;">STEP</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.45rem; color:#444; letter-spacing:4px; margin-top:4px;">LED FLOOR ARCADE</div>
+            </div>
+
+            <!-- Phase -->
+            <div class="panel-card">
+                <div class="panel-label">PHASE</div>
+                <span id="phase-indicator" class="phase-badge phase-1">
+                    <span class="phase-dot"></span>
+                    PHASE 1
+                </span>
+            </div>
+
+            <!-- Timer -->
+            <div class="panel-card">
+                <div class="panel-label">TIME REMAINING</div>
+                <div id="time-display" class="panel-value" style="font-size:2rem; color:#fff; letter-spacing:2px;">1:30</div>
+                <div id="timer-bar-wrap" style="margin-top:10px;">
+                    <div id="timer-bar"></div>
+                </div>
+            </div>
+
+            <!-- Best Score -->
+            <div class="panel-card">
+                <div class="panel-label">HIGH SCORE</div>
+                <div id="hud-high-score" class="panel-value" style="font-size:1.2rem; color:#ffd700;">0</div>
+            </div>
+
+            <!-- Spacer -->
+            <div style="flex:1;"></div>
+
+            <!-- Controls -->
+            <div class="panel-card" style="text-align:center;">
+                <div class="panel-label" style="margin-bottom:2px;">CONTROLS</div>
+                <div class="key-group">
+                    <div class="key-row"><span class="key-cap">W</span></div>
+                    <div class="key-row"><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span></div>
+                </div>
+                <div style="font-size:0.55rem; color:#444; margin-top:6px;">or Arrow Keys</div>
+                <div style="font-size:0.5rem; color:#333; margin-top:2px;">Click also works</div>
+            </div>
+        </div>
+
+        <!-- ─── CENTER: GRID ─── -->
+        <div id="grid-column">
+            <div id="game-grid"></div>
+            <div id="timer-bar-wrap-bottom" style="display:none;">
+                <div id="timer-bar-bottom"></div>
+            </div>
+        </div>
+
+        <!-- ─── RIGHT PANEL ─── -->
+        <div class="side-panel">
+            <!-- Score -->
+            <div class="panel-card">
+                <div class="panel-label">SCORE</div>
+                <div id="score-display" class="panel-value" style="font-size:2.2rem; color:#fff;">0</div>
+            </div>
+
+            <!-- Combo -->
+            <div class="panel-card">
+                <div class="panel-label">COMBO</div>
+                <div id="combo-display" class="panel-value" style="font-size:1.6rem; color:var(--neon);">x1</div>
+                <div class="combo-bar-track">
+                    <div id="combo-bar" class="combo-bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- Hits / Misses Live -->
+            <div class="panel-card">
+                <div class="panel-label">HITS</div>
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span id="hud-hits" class="panel-value" style="font-size:1.4rem; color:var(--neon);">0</span>
+                    <span style="font-size:0.55rem; color:#444;">STEPPED</span>
+                </div>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-label">MISSED</div>
+                <div style="display:flex; align-items:baseline; gap:8px;">
+                    <span id="hud-misses" class="panel-value" style="font-size:1.4rem; color:var(--danger);">0</span>
+                    <span style="font-size:0.55rem; color:#444;">EXPIRED</span>
+                </div>
+            </div>
+
+            <!-- Spacer -->
+            <div style="flex:1;"></div>
+
+            <!-- Game ID -->
+            <div class="panel-card" style="text-align:center;">
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.5rem; color:#333; letter-spacing:3px;">CSM-C1-004</div>
+                <div style="font-family:'Orbitron',sans-serif; font-size:0.45rem; color:#222; letter-spacing:2px; margin-top:2px;">FORTAL GDD v2.3</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ MENU OVERLAY ═══ -->
+    <div id="menu-screen" class="overlay">
+        <div style="text-align:center; animation:fadeSlide 0.4s ease-out;">
+            <div class="menu-title">LIGHT STEP</div>
+            <div class="menu-subtitle">LED FLOOR ARCADE</div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <div class="high-score-pill" style="animation:fadeSlide 0.5s ease-out;">
+            <span style="font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#888; letter-spacing:2px;">BEST</span>
+            <span id="menu-high-score" style="font-family:'Orbitron',sans-serif; font-size:1.5rem; font-weight:900; color:#ffd700;">0</span>
+        </div>
+
+        <div style="margin-top:20px; text-align:center; max-width:300px; animation:fadeSlide 0.6s ease-out;">
+            <p style="color:#888; font-size:0.9rem;">วิ่งเหยียบไฟ <span style="color:var(--neon); font-weight:600;">สีเขียว</span> ที่สว่างขึ้นมาให้ทันก่อนดับ!</p>
+            <p style="color:#555; font-size:0.75rem; margin-top:4px;">เหยียบเร็วต่อเนื่อง = Combo x2, x3, x4!</p>
+        </div>
+
+        <div style="margin-top:16px; animation:fadeSlide 0.65s ease-out;">
+            <div class="phase-info-row">
+                <span class="phase-badge phase-1"><span class="phase-dot"></span>P1</span>
+                <span>0-30s &middot; ช่อง 2x2 &middot; สว่าง 4 วิ</span>
+            </div>
+            <div class="phase-info-row">
+                <span class="phase-badge phase-2"><span class="phase-dot"></span>P2</span>
+                <span>30-60s &middot; ผสม 2x2+1x1 &middot; สว่าง 3 วิ</span>
+            </div>
+            <div class="phase-info-row">
+                <span class="phase-badge phase-3"><span class="phase-dot"></span>P3</span>
+                <span>60-90s &middot; ช่อง 1x1 &middot; สว่าง 2 วิ</span>
+            </div>
+        </div>
+
+        <div style="margin-top:6px; display:flex; align-items:center; gap:6px; animation:fadeSlide 0.7s ease-out;">
+            <div class="key-group" style="margin-top:0;">
+                <div class="key-row"><span class="key-cap">W</span></div>
+                <div class="key-row"><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span></div>
+            </div>
+            <span style="font-size:0.6rem; color:#555;">= เดิน &middot; คลิกเมาส์ก็ได้</span>
+        </div>
+
+        <button class="btn-play" onclick="game.start()" style="margin-top:24px; animation:fadeSlide 0.8s ease-out;">
+            START
+        </button>
+    </div>
+
+    <!-- ═══ GAME OVER OVERLAY ═══ -->
+    <div id="gameover-screen" class="overlay hidden">
+        <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:clamp(1.5rem,4vw,2.5rem); color:var(--danger); text-shadow:0 0 20px rgba(255,0,60,0.3); letter-spacing:4px; animation:fadeSlide 0.3s ease-out;">
+            TIME'S UP
+        </div>
+
+        <div class="menu-divider" style="background:linear-gradient(90deg, transparent, var(--danger), transparent);"></div>
+
+        <div style="text-align:center; animation:fadeSlide 0.4s ease-out;">
+            <div style="font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#555; letter-spacing:3px;">FINAL SCORE</div>
+            <div id="final-score" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:3.5rem; color:#fff; line-height:1; margin-top:4px;">0</div>
+            <div id="new-record-badge" class="hidden" style="margin-top:8px; display:inline-block; padding:4px 14px; background:rgba(255,200,0,0.15); border:1px solid rgba(255,200,0,0.3); border-radius:6px; font-family:'Orbitron',sans-serif; font-size:0.6rem; font-weight:700; color:#ffd700; letter-spacing:2px; animation:countPulse 1s infinite;">
+                NEW RECORD
+            </div>
+        </div>
+
+        <div class="stats-card" style="margin-top:20px; animation:fadeSlide 0.5s ease-out;">
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Lights Hit</span>
+                <span id="stat-hits" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--neon);">0</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Lights Missed</span>
+                <span id="stat-misses" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--danger);">0</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Best Combo</span>
+                <span id="stat-combo" style="font-family:'Orbitron',sans-serif; font-weight:700; color:#ffd700;">x1</span>
+            </div>
+            <div class="stat-row">
+                <span style="color:#666; font-size:0.85rem;">Accuracy</span>
+                <span id="stat-accuracy" style="font-family:'Orbitron',sans-serif; font-weight:700; color:var(--neon);">0%</span>
+            </div>
+        </div>
+
+        <button class="btn-play" onclick="game.start()" style="margin-top:24px; animation:fadeSlide 0.6s ease-out;">
+            PLAY AGAIN
+        </button>
+    </div>
+
+    <!-- ═══ COUNTDOWN OVERLAY ═══ -->
+    <div id="countdown-screen" class="overlay hidden">
+        <span id="countdown-num" style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:6rem; color:var(--neon); text-shadow:0 0 40px rgba(0,255,65,0.4); animation:countPulse 0.6s ease-out;">3</span>
+    </div>
+
+<script>
+// ═══════════════════════════════════════════
+// Light Step — CSM-C1-004
+// LED Floor Reflex Arcade Game
+// ═══════════════════════════════════════════
+
+const COLS = 10;
+const ROWS = 20;
+const GAME_TIME = 90;
+const POINTS_PER_HIT = 10;
+const LS_KEY = 'lightstep_highscore';
+
+const PHASES = [
+    { name: 'PHASE 1', start: 0,  end: 30, lightDuration: 4000, warnTime: 1000, tileSize: '2x2', spawnInterval: 2200, maxActive: 2, cssClass: 'phase-1' },
+    { name: 'PHASE 2', start: 30, end: 60, lightDuration: 3000, warnTime: 800,  tileSize: 'mix',  spawnInterval: 1800, maxActive: 3, cssClass: 'phase-2' },
+    { name: 'PHASE 3', start: 60, end: 90, lightDuration: 2000, warnTime: 600,  tileSize: '1x1', spawnInterval: 1200, maxActive: 4, cssClass: 'phase-3' },
+];
+
+// ─── Player ───
+const player = {
+    row: 10, col: 5, el: null,
+
+    init() {
+        this.el = document.createElement('div');
+        this.el.id = 'player';
+        document.getElementById('game-grid').appendChild(this.el);
+        this.updatePosition();
+    },
+
+    reset() {
+        this.row = Math.floor(ROWS / 2);
+        this.col = Math.floor(COLS / 2);
+        this.updatePosition();
+    },
+
+    move(dr, dc) {
+        if (game.state !== 'PLAYING') return;
+        const nr = this.row + dr;
+        const nc = this.col + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
+        this.row = nr;
+        this.col = nc;
+        this.updatePosition();
+        this.el.classList.remove('step-flash');
+        void this.el.offsetWidth;
+        this.el.classList.add('step-flash');
+        game.handleTileClick(this.row, this.col);
+    },
+
+    updatePosition() {
+        if (!this.el) return;
+        const tileSize = game.tiles[0]?.[0]?.offsetWidth || 30;
+        const gap = 2;
+        this.el.style.left = this.col * (tileSize + gap) + 'px';
+        this.el.style.top = this.row * (tileSize + gap) + 'px';
+    }
+};
+
+// ─── Game State ───
+const game = {
+    state: 'MENU',
+    timer: GAME_TIME,
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+    hits: 0,
+    misses: 0,
+    totalSpawned: 0,
+    highScore: parseInt(localStorage.getItem(LS_KEY)) || 0,
+    activeLights: [],
+    lightIdCounter: 0,
+    tickInterval: null,
+    tiles: [],
+
+    start() {
+        this.state = 'COUNTDOWN';
+        this.timer = GAME_TIME;
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.hits = 0;
+        this.misses = 0;
+        this.totalSpawned = 0;
+        this.activeLights = [];
+        this.lightIdCounter = 0;
+
+        this.clearGrid();
+        player.reset();
+
+        ui.updateScore(0);
+        ui.updateCombo(0);
+        ui.updateHits(0);
+        ui.updateMisses(0);
+        ui.updateTimer(GAME_TIME);
+        ui.updateTimerBar(1);
+        ui.updatePhase(PHASES[0]);
+
+        ui.showScreen('countdown');
+        this.doCountdown(3);
+    },
+
+    doCountdown(n) {
+        if (n <= 0) {
+            ui.showScreen('none');
+            this.state = 'PLAYING';
+            this.beginGameLoop();
+            return;
+        }
+        const el = document.getElementById('countdown-num');
+        el.textContent = n;
+        el.style.animation = 'none';
+        void el.offsetWidth;
+        el.style.animation = 'countPulse 0.6s ease-out';
+        setTimeout(() => this.doCountdown(n - 1), 800);
+    },
+
+    beginGameLoop() {
+        this.tickInterval = setInterval(() => this.tick(), 1000);
+        this.spawnLight();
+        this.scheduleNextSpawn();
+    },
+
+    tick() {
+        if (this.state !== 'PLAYING') return;
+        this.timer--;
+        ui.updateTimer(this.timer);
+        ui.updateTimerBar(this.timer / GAME_TIME);
+        ui.updatePhase(this.getCurrentPhase());
+        if (this.timer <= 0) this.endGame();
+    },
+
+    getCurrentPhase() {
+        const elapsed = GAME_TIME - this.timer;
+        for (let i = PHASES.length - 1; i >= 0; i--) {
+            if (elapsed >= PHASES[i].start) return PHASES[i];
+        }
+        return PHASES[0];
+    },
+
+    scheduleNextSpawn() {
+        if (this.state !== 'PLAYING') return;
+        const phase = this.getCurrentPhase();
+        const jitter = (Math.random() - 0.5) * 600;
+        const delay = Math.max(600, phase.spawnInterval + jitter);
+        this.spawnTimeout = setTimeout(() => {
+            if (this.state === 'PLAYING') {
+                this.spawnLight();
+                this.scheduleNextSpawn();
+            }
+        }, delay);
+    },
+
+    spawnLight() {
+        const phase = this.getCurrentPhase();
+        if (this.activeLights.length >= phase.maxActive) return;
+
+        const id = ++this.lightIdCounter;
+        let tiles;
+
+        if (phase.tileSize === '2x2') tiles = this.getRandomBlock(2, 2);
+        else if (phase.tileSize === '1x1') tiles = this.getRandomBlock(1, 1);
+        else tiles = Math.random() < 0.5 ? this.getRandomBlock(2, 2) : this.getRandomBlock(1, 1);
+
+        if (!tiles || tiles.length === 0) return;
+        this.totalSpawned++;
+
+        tiles.forEach(({r, c}) => {
+            const el = this.tiles[r][c];
+            el.classList.add('active');
+            el.dataset.lightId = id;
+        });
+
+        const light = { id, tiles, spawnTime: Date.now(), duration: phase.lightDuration, warnTime: phase.warnTime, warned: false };
+
+        light.warnTimer = setTimeout(() => {
+            if (this.state !== 'PLAYING') return;
+            light.warned = true;
+            tiles.forEach(({r, c}) => {
+                if (this.tiles[r][c].classList.contains('active')) this.tiles[r][c].classList.add('warning');
+            });
+        }, phase.lightDuration - phase.warnTime);
+
+        light.expireTimer = setTimeout(() => this.expireLight(light), phase.lightDuration);
+        this.activeLights.push(light);
+    },
+
+    getRandomBlock(w, h) {
+        for (let attempt = 0; attempt < 30; attempt++) {
+            const c = Math.floor(Math.random() * (COLS - w + 1));
+            const r = Math.floor(Math.random() * (ROWS - h + 1));
+            let overlap = false;
+            const cells = [];
+            for (let dr = 0; dr < h && !overlap; dr++) {
+                for (let dc = 0; dc < w && !overlap; dc++) {
+                    if (this.tiles[r + dr][c + dc].classList.contains('active')) overlap = true;
+                    else cells.push({ r: r + dr, c: c + dc });
+                }
+            }
+            if (!overlap) return cells;
+        }
+        return null;
+    },
+
+    handleTileClick(r, c) {
+        if (this.state !== 'PLAYING') return;
+        const el = this.tiles[r][c];
+        if (!el.classList.contains('active')) return;
+
+        const lightId = parseInt(el.dataset.lightId);
+        const lightIdx = this.activeLights.findIndex(l => l.id === lightId);
+        if (lightIdx === -1) return;
+
+        const light = this.activeLights[lightIdx];
+        clearTimeout(light.warnTimer);
+        clearTimeout(light.expireTimer);
+        this.activeLights.splice(lightIdx, 1);
+
+        this.combo++;
+        if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+        this.hits++;
+
+        const multiplier = Math.min(this.combo, 4);
+        const points = POINTS_PER_HIT * multiplier;
+        this.score += points;
+
+        light.tiles.forEach(({r: tr, c: tc}) => {
+            const tel = this.tiles[tr][tc];
+            tel.classList.remove('active', 'warning');
+            tel.classList.add('hit');
+            delete tel.dataset.lightId;
+            setTimeout(() => tel.classList.remove('hit'), 200);
+        });
+
+        if (this.combo >= 2) this.showComboPopup(r, c, this.combo);
+        this.showScoreFly(r, c, points);
+
+        ui.updateScore(this.score);
+        ui.updateCombo(this.combo);
+        ui.updateHits(this.hits);
+    },
+
+    expireLight(light) {
+        const idx = this.activeLights.findIndex(l => l.id === light.id);
+        if (idx === -1) return;
+        this.activeLights.splice(idx, 1);
+        this.misses++;
+        this.combo = 0;
+
+        light.tiles.forEach(({r, c}) => {
+            const el = this.tiles[r][c];
+            el.classList.remove('active', 'warning');
+            el.classList.add('missed');
+            delete el.dataset.lightId;
+            setTimeout(() => el.classList.remove('missed'), 250);
+        });
+
+        ui.updateCombo(0);
+        ui.updateMisses(this.misses);
+    },
+
+    showComboPopup(r, c, combo) {
+        const rect = this.tiles[r][c].getBoundingClientRect();
+        const popup = document.createElement('div');
+        popup.className = 'combo-popup';
+        popup.textContent = `x${combo}!`;
+        popup.style.left = rect.left + rect.width / 2 - 20 + 'px';
+        popup.style.top = rect.top - 10 + 'px';
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 700);
+    },
+
+    showScoreFly(r, c, points) {
+        const rect = this.tiles[r][c].getBoundingClientRect();
+        const fly = document.createElement('div');
+        fly.className = 'score-fly';
+        fly.textContent = `+${points}`;
+        fly.style.left = rect.left + rect.width / 2 + 10 + 'px';
+        fly.style.top = rect.top + 'px';
+        fly.style.color = points > 10 ? '#ffd700' : 'var(--neon)';
+        fly.style.fontSize = points > 20 ? '1.1rem' : '0.85rem';
+        fly.style.textShadow = `0 0 8px currentColor`;
+        document.body.appendChild(fly);
+        setTimeout(() => fly.remove(), 600);
+    },
+
+    clearGrid() {
+        this.activeLights.forEach(l => { clearTimeout(l.warnTimer); clearTimeout(l.expireTimer); });
+        this.activeLights = [];
+        for (let r = 0; r < ROWS; r++)
+            for (let c = 0; c < COLS; c++) {
+                this.tiles[r][c].className = 'tile';
+                delete this.tiles[r][c].dataset.lightId;
+            }
+    },
+
+    endGame() {
+        this.state = 'GAMEOVER';
+        clearInterval(this.tickInterval);
+        clearTimeout(this.spawnTimeout);
+
+        this.activeLights.forEach(l => {
+            clearTimeout(l.warnTimer);
+            clearTimeout(l.expireTimer);
+            l.tiles.forEach(({r, c}) => {
+                this.tiles[r][c].classList.remove('active', 'warning');
+                delete this.tiles[r][c].dataset.lightId;
+            });
+        });
+        this.activeLights = [];
+
+        const isNewRecord = this.score > this.highScore;
+        if (isNewRecord) {
+            this.highScore = this.score;
+            localStorage.setItem(LS_KEY, this.highScore);
+        }
+
+        ui.showGameOver(this.score, this.hits, this.misses, this.maxCombo, isNewRecord);
+    },
+
+    initVuplex() {
+        if (typeof vuplex !== 'undefined') {
+            vuplex.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data || event.value);
+                    if (data.type === 'down' && data.row !== undefined && data.col !== undefined)
+                        this.handleTileClick(data.row, data.col);
+                } catch (e) { console.warn('Vuplex parse error:', e); }
+            });
+        } else {
+            window.addEventListener('vuplexready', () => this.initVuplex());
+        }
+    }
+};
+
+// ─── UI ───
+const ui = {
+    updateScore(v) { document.getElementById('score-display').textContent = v; },
+    updateHits(v) { document.getElementById('hud-hits').textContent = v; },
+    updateMisses(v) { document.getElementById('hud-misses').textContent = v; },
+
+    updateCombo(combo) {
+        const mult = Math.min(combo || 0, 4);
+        const el = document.getElementById('combo-display');
+        el.textContent = mult > 0 ? `x${mult}` : 'x1';
+
+        const colors = ['var(--neon)', 'var(--neon)', '#ffae00', '#ffd700', '#ff003c'];
+        el.style.color = colors[mult] || colors[0];
+
+        // Combo bar
+        const bar = document.getElementById('combo-bar');
+        const pct = (mult / 4) * 100;
+        bar.style.width = pct + '%';
+        bar.style.background = colors[mult] || colors[0];
+    },
+
+    updateTimer(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        document.getElementById('time-display').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    },
+
+    updateTimerBar(pct) {
+        const bar = document.getElementById('timer-bar');
+        bar.style.width = (pct * 100) + '%';
+        bar.classList.toggle('low', pct < 0.2);
+    },
+
+    updatePhase(phase) {
+        const el = document.getElementById('phase-indicator');
+        el.className = 'phase-badge ' + phase.cssClass;
+        el.innerHTML = `<span class="phase-dot"></span>${phase.name}`;
+    },
+
+    showScreen(name) {
+        document.getElementById('menu-screen').classList.toggle('hidden', name !== 'menu');
+        document.getElementById('gameover-screen').classList.toggle('hidden', name !== 'gameover');
+        document.getElementById('countdown-screen').classList.toggle('hidden', name !== 'countdown');
+    },
+
+    showGameOver(score, hits, misses, maxCombo, isNewRecord) {
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('stat-hits').textContent = hits;
+        document.getElementById('stat-misses').textContent = misses;
+        document.getElementById('stat-combo').textContent = `x${Math.min(maxCombo, 4)}`;
+        const total = hits + misses;
+        document.getElementById('stat-accuracy').textContent = total > 0 ? Math.round((hits / total) * 100) + '%' : '0%';
+
+        const badge = document.getElementById('new-record-badge');
+        badge.classList.toggle('hidden', !isNewRecord);
+        badge.style.display = isNewRecord ? 'inline-block' : 'none';
+        document.getElementById('menu-high-score').textContent = game.highScore;
+        document.getElementById('hud-high-score').textContent = game.highScore;
+
+        this.showScreen('gameover');
+    }
+};
+
+// ─── Build Grid ───
+function buildGrid() {
+    const grid = document.getElementById('game-grid');
+    grid.innerHTML = '';
+    game.tiles = [];
+    for (let r = 0; r < ROWS; r++) {
+        game.tiles[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            const tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.addEventListener('pointerdown', (e) => { e.preventDefault(); game.handleTileClick(r, c); });
+            grid.appendChild(tile);
+            game.tiles[r][c] = tile;
+        }
+    }
+}
+
+// ─── Keyboard ───
+const keysHeld = {};
+let keyRepeatInterval = null;
+
+document.addEventListener('keydown', (e) => {
+    if (keysHeld[e.key]) return;
+    keysHeld[e.key] = true;
+    const dir = getDirection(e.key);
+    if (dir) {
+        e.preventDefault();
+        player.move(dir.dr, dir.dc);
+        clearInterval(keyRepeatInterval);
+        keyRepeatInterval = setInterval(() => {
+            if (keysHeld[e.key]) player.move(dir.dr, dir.dc);
+            else clearInterval(keyRepeatInterval);
+        }, 80);
+    }
+    if ((e.key === ' ' || e.key === 'Enter') && (game.state === 'MENU' || game.state === 'GAMEOVER')) {
+        e.preventDefault();
+        game.start();
+    }
+});
+
+document.addEventListener('keyup', (e) => { delete keysHeld[e.key]; });
+
+function getDirection(key) {
+    switch (key.toLowerCase()) {
+        case 'w': case 'arrowup':    return { dr: -1, dc: 0 };
+        case 's': case 'arrowdown':  return { dr: 1, dc: 0 };
+        case 'a': case 'arrowleft':  return { dr: 0, dc: -1 };
+        case 'd': case 'arrowright': return { dr: 0, dc: 1 };
+        default: return null;
+    }
+}
+
+// ─── Init ───
+function init() {
+    buildGrid();
+    player.init();
+    document.getElementById('menu-high-score').textContent = game.highScore;
+    document.getElementById('hud-high-score').textContent = game.highScore;
+    game.initVuplex();
+    ui.showScreen('menu');
+    window.addEventListener('resize', () => player.updatePosition());
+}
+
+init();
+</script>
+</body>
+</html>
