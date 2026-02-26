@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shape Tracer: LED Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 6; --rows: 15;
+            --tile-size: min(3.5vw, 3.5vh, 36px);
+            --gap: 2px;
+            --team-a: #10b981; --team-a-glow: rgba(16,185,129,0.5);
+            --team-b: #3b82f6; --team-b-glow: rgba(59,130,246,0.5);
+            --bg: #0a0810; --panel: #12101e; --panel-border: #1e1a35;
+            --tile-bg: #1a1530; --gold: #fbbf24;
+            --accent: #06b6d4;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg); color: #e0e0e0;
+            overflow: hidden; width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; touch-action: none;
+        }
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(16,185,129,0.003) 2px, rgba(16,185,129,0.003) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,3,10,0.97); backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100; padding: 20px;
+        }
+        .overlay.hidden { display: none; }
+
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: clamp(1.6rem, 5vw, 2.8rem);
+            letter-spacing: 4px; line-height: 1.2; text-align: center;
+        }
+        .title-shape { color: var(--accent); text-shadow: 0 0 30px rgba(6,182,212,0.5); }
+        .title-tracer { color: var(--team-a); text-shadow: 0 0 30px var(--team-a-glow); }
+        .menu-sub {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; letter-spacing: 5px; color: #444;
+        }
+        .menu-divider {
+            width: 120px; height: 2px;
+            background: linear-gradient(90deg, var(--accent), transparent 30%, transparent 70%, var(--team-a));
+            margin: 14px auto;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.8rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            color: #fff;
+            background: linear-gradient(135deg, var(--team-a), var(--accent));
+            border: none; padding: 14px 40px; border-radius: 10px; cursor: pointer;
+            box-shadow: 0 0 25px var(--team-a-glow);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px var(--team-a-glow); }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-ghost {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.6rem; letter-spacing: 2px;
+            color: var(--gold); background: rgba(251,191,36,0.08);
+            border: 1px solid rgba(251,191,36,0.25);
+            padding: 10px 24px; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: rgba(251,191,36,0.15); }
+
+        /* Game Layout */
+        #game-screen {
+            display: none; width: 100vw; height: 100vh;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 5px; padding: 8px;
+        }
+
+        /* HUD */
+        .hud-top { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .hud-chip {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 10px; background: var(--panel);
+            border: 1px solid var(--panel-border); border-radius: 6px; font-size: 0.7rem;
+        }
+        .hud-chip .val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 0.85rem; }
+
+        /* Phase Banner */
+        #phase-banner {
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: clamp(0.7rem, 2.2vw, 1rem); letter-spacing: 3px;
+            text-align: center; padding: 4px 20px; border-radius: 8px;
+            min-height: 32px; display: flex; align-items: center; justify-content: center; gap: 12px;
+            color: var(--accent); background: rgba(6,182,212,0.1);
+            border: 1px solid rgba(6,182,212,0.3); text-shadow: 0 0 20px rgba(6,182,212,0.5);
+        }
+
+        /* Shape Preview (mini grid in banner) */
+        .shape-preview {
+            display: inline-grid; gap: 2px;
+        }
+        .sp-cell { width: 8px; height: 8px; border-radius: 1px; }
+
+        /* Arena */
+        .arena { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+        .team-side { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .team-label {
+            font-family: 'Orbitron', sans-serif; font-weight: 700;
+            font-size: 0.55rem; letter-spacing: 3px;
+            padding: 3px 12px; border-radius: 6px;
+        }
+        .label-a { color: var(--team-a); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.2); }
+        .label-b { color: var(--team-b); background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.2); }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap); padding: 6px; border-radius: 10px;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--panel-border);
+            transition: box-shadow 0.3s; position: relative;
+        }
+        .grid-active-a { box-shadow: 0 0 15px var(--team-a-glow); border-color: rgba(16,185,129,0.3); }
+        .grid-active-b { box-shadow: 0 0 15px var(--team-b-glow); border-color: rgba(59,130,246,0.3); }
+
+        /* Tiles */
+        .g-tile {
+            width: var(--tile-size); height: var(--tile-size);
+            background: var(--tile-bg); border-radius: 4px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.12s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .g-tile:hover:not(.traced) { background: #221a40; }
+
+        /* Target ghost tile */
+        .g-tile.target { border-style: dashed; }
+
+        /* Traced tile */
+        .g-tile.traced { animation: tracePop 0.3s ease-out; }
+        @keyframes tracePop { 0%{transform:scale(0.8)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+
+        /* Footprint */
+        .g-tile.footprint { background: rgba(255,255,255,0.08) !important; }
+
+        /* Round complete flash */
+        .g-tile.complete-flash { animation: completeFlash 0.8s ease-out; }
+        @keyframes completeFlash {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.2); filter: brightness(2); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        /* VS divider */
+        .vs-divider {
+            font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem;
+            color: var(--gold); text-shadow: 0 0 20px rgba(251,191,36,0.5);
+            padding: 0 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+        }
+
+        /* Progress row */
+        .progress-row {
+            display: flex; align-items: center; gap: 8px; width: 100%; max-width: 600px;
+        }
+        .progress-label {
+            font-family: 'Orbitron', sans-serif; font-weight: 700;
+            font-size: 0.5rem; letter-spacing: 2px; min-width: 30px;
+        }
+        .progress-track {
+            flex: 1; height: 8px; background: #1a1530; border-radius: 4px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 4px; transition: width 0.2s ease-out; width: 0;
+        }
+        .progress-text {
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: 0.65rem; min-width: 40px; text-align: right;
+        }
+
+        /* Timer track */
+        .timer-track { width: 100%; max-width: 600px; height: 6px; background: #1a1530; border-radius: 3px; overflow: hidden; }
+        .timer-fill { height: 100%; background: linear-gradient(90deg, var(--team-a), var(--accent)); border-radius: 3px; transition: width 0.15s linear; }
+        .timer-fill.urgent { background: linear-gradient(90deg, #dc2626, #ff0000); }
+
+        /* Hint */
+        .hint-bar {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.45rem; letter-spacing: 2px; color: #555; text-align: center;
+        }
+
+        /* Result popup */
+        #result-popup {
+            position: fixed; inset: 0; display: none;
+            align-items: center; justify-content: center;
+            z-index: 90; pointer-events: none;
+        }
+        #result-popup.show { display: flex; }
+        .result-text {
+            font-family: 'Orbitron', sans-serif; font-weight: 900;
+            font-size: clamp(1.2rem, 4vw, 2rem); letter-spacing: 3px;
+            padding: 12px 30px; border-radius: 12px;
+            animation: resultPop 1.2s ease-out forwards;
+        }
+        .result-complete { color: var(--team-a); background: rgba(16,185,129,0.15); text-shadow: 0 0 30px var(--team-a-glow); }
+        .result-timeout { color: #ef4444; background: rgba(239,68,68,0.1); text-shadow: 0 0 30px rgba(239,68,68,0.4); }
+        .result-win { color: var(--gold); background: rgba(251,191,36,0.1); text-shadow: 0 0 30px rgba(251,191,36,0.4); }
+        @keyframes resultPop {
+            0%{transform:scale(0);opacity:0} 25%{transform:scale(1.15);opacity:1}
+            50%{transform:scale(1)} 100%{transform:scale(1) translateY(-10px);opacity:0}
+        }
+
+        /* Countdown */
+        .countdown-num {
+            font-family: 'Orbitron', sans-serif; font-size: 6rem; font-weight: 900;
+            color: var(--accent); text-shadow: 0 0 60px rgba(6,182,212,0.5);
+            animation: countIn 0.5s ease-out;
+        }
+        @keyframes countIn { 0%{transform:scale(1.6);opacity:0} 50%{opacity:1} 100%{transform:scale(1)} }
+
+        /* Stat box */
+        .stat-box {
+            text-align: center; padding: 10px 14px;
+            background: var(--panel); border: 1px solid var(--panel-border); border-radius: 8px;
+        }
+        .stat-val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; }
+        .stat-label { font-size: 0.55rem; color: #555; margin-top: 2px; letter-spacing: 1px; }
+
+        /* Player */
+        #player {
+            position: absolute; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fde68a, #f59e0b 60%, #d97706);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 0 14px rgba(245,158,11,0.6), 0 0 4px #fff;
+            z-index: 30; transition: left 0.08s ease-out, top 0.08s ease-out;
+            pointer-events: none;
+        }
+        #player::after {
+            content: ''; width: 35%; height: 35%;
+            background: rgba(255,255,255,0.55); border-radius: 50%;
+            position: absolute; top: 18%; left: 20%; filter: blur(1px);
+        }
+
+        /* Single mode bigger tiles */
+        body.single-mode { --tile-size: min(5vw, 4.5vh, 42px); }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+            .scanline { display: none; }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) { :root { --tile-size: min(3.2vw, 3.2vh, 30px); } }
+        @media (max-width: 700px) {
+            :root { --tile-size: min(2.8vw, 2.8vh, 26px); }
+            .arena { gap: 8px; }
+            .team-label { font-size: 0.45rem; letter-spacing: 2px; }
+        }
+        @media (max-width: 500px) {
+            :root { --tile-size: min(7.5vw, 4vh, 30px); }
+            .arena { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!-- MENU -->
+<div id="menu" class="overlay">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub">CSM-C2-006 &middot; FORTAL INTERACTIVE</div>
+        <div class="menu-title" style="margin:8px 0;">
+            <span class="title-shape">SHAPE</span><br>
+            <span class="title-tracer">TRACER</span>
+        </div>
+        <div class="menu-divider"></div>
+        <div style="font-size:0.85rem;color:var(--accent);margin-bottom:4px;">Drawing / Memory</div>
+        <div style="font-size:0.75rem;color:#777;max-width:340px;margin:0 auto 20px;line-height:1.7;">
+            รูปทรงโจทย์ปรากฏบนหน้าจอ!<br>
+            <span style="color:var(--team-a);">วิ่งวาดรูปบนพื้นให้ตรงกับโจทย์</span><br>
+            วาดครบ <span style="color:var(--gold);">5 รูป</span> ก่อนชนะ!
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="beginGame('dual')">DUAL LANE</button>
+            <button class="btn-primary" onclick="beginGame('single')" style="background:linear-gradient(135deg,#8b5cf6,#a855f7);box-shadow:0 0 25px rgba(139,92,246,0.3);">SINGLE LANE</button>
+        </div>
+        <div style="font-size:0.45rem;color:#333;margin-top:12px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+            WASD / ARROWS &middot; 5 SHAPES &middot; TRACE TO WIN
+        </div>
+    </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown" class="overlay hidden">
+    <div id="count-num" class="countdown-num"></div>
+</div>
+
+<!-- ROUND INTRO -->
+<div id="round-intro" class="overlay hidden">
+    <div style="text-align:center;">
+        <div class="menu-sub" id="intro-round-label">ROUND 1</div>
+        <div id="intro-shape-name" class="menu-title" style="font-size:clamp(1.4rem,4vw,2.2rem);margin:8px 0;"></div>
+        <div id="intro-preview" class="shape-preview" style="margin:16px auto;"></div>
+        <div id="intro-tiles" style="color:#888;font-size:0.8rem;font-family:'Orbitron',sans-serif;letter-spacing:2px;"></div>
+    </div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="overlay hidden">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub" style="margin-bottom:6px;">GAME OVER</div>
+        <div id="winner-text" class="menu-title" style="font-size:1.8rem;"></div>
+        <div class="menu-divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="stat-box" style="border-color:rgba(16,185,129,0.3);">
+                <div id="go-score-a" class="stat-val" style="color:var(--team-a);">0</div>
+                <div class="stat-label" id="go-label-a">YOU — ROUNDS</div>
+            </div>
+            <div class="stat-box" style="border-color:rgba(59,130,246,0.3);">
+                <div id="go-score-b" class="stat-val" style="color:var(--team-b);">0</div>
+                <div class="stat-label" id="go-label-b">AI — ROUNDS</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn-primary" onclick="beginGame(G.mode)" style="font-size:0.7rem;padding:12px 24px;">REMATCH</button>
+            <button class="btn-ghost" onclick="goMenu()">MENU</button>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT POPUP -->
+<div id="result-popup"><div id="result-text" class="result-text"></div></div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+    <div class="hud-top">
+        <div class="hud-chip"><span style="color:#888;">Round</span> <span id="h-round" class="val" style="color:var(--accent);">1/5</span></div>
+        <div class="hud-chip"><span style="color:var(--team-a);">You</span> <span id="h-score-a" class="val" style="color:var(--team-a);">0</span></div>
+        <div class="hud-chip" id="hud-ai"><span style="color:var(--team-b);">AI</span> <span id="h-score-b" class="val" style="color:var(--team-b);">0</span></div>
+        <div class="hud-chip" id="hud-timer-chip" style="display:none;"><span style="color:#888;">Time</span> <span id="h-time" class="val" style="color:var(--gold);">20</span></div>
+    </div>
+
+    <div id="phase-banner">
+        <span id="banner-text">TRACE THE SHAPE!</span>
+        <div id="banner-preview" class="shape-preview"></div>
+    </div>
+
+    <div class="arena" id="arena">
+        <div class="team-side">
+            <div class="team-label label-a" id="label-a">YOU</div>
+            <div class="team-grid grid-active-a" id="grid-a" style="position:relative;">
+                <div id="player"></div>
+            </div>
+        </div>
+        <div class="vs-divider" id="vs-divider">
+            <span>VS</span>
+        </div>
+        <div class="team-side" id="side-b">
+            <div class="team-label label-b">AI</div>
+            <div class="team-grid grid-active-b" id="grid-b" style="position:relative;"></div>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:16px;width:100%;max-width:620px;flex-wrap:wrap;justify-content:center;">
+        <div class="progress-row" id="prog-row-a">
+            <span class="progress-label" style="color:var(--team-a);">YOU</span>
+            <div class="progress-track"><div id="prog-fill-a" class="progress-fill" style="background:var(--team-a);"></div></div>
+            <span id="prog-text-a" class="progress-text" style="color:var(--team-a);">0/0</span>
+        </div>
+        <div class="progress-row" id="prog-row-b">
+            <span class="progress-label" style="color:var(--team-b);">AI</span>
+            <div class="progress-track"><div id="prog-fill-b" class="progress-fill" style="background:var(--team-b);"></div></div>
+            <span id="prog-text-b" class="progress-text" style="color:var(--team-b);">0/0</span>
+        </div>
+    </div>
+
+    <div class="timer-track" id="timer-track" style="display:none;"><div id="timer-fill" class="timer-fill"></div></div>
+    <div class="hint-bar">WASD / ARROWS TO MOVE &middot; TRACE ALL HIGHLIGHTED TILES!</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  SHAPE TRACER — Engine
+// ═══════════════════════════════════════
+const COLS = 6, ROWS = 15, TOTAL = COLS * ROWS;
+
+// Shape definitions (relative coordinates)
+const SHAPES = [
+    {
+        name: "LINE", desc: "เส้นตรง",
+        tiles: [[0,0],[0,1],[0,2],[0,3]],
+        color: "#22c55e", glow: "rgba(34,197,94,0.5)", dim: "rgba(34,197,94,0.12)",
+        time: 20,
+    },
+    {
+        name: "L-SHAPE", desc: "ตัวแอล",
+        tiles: [[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[3,3]],
+        color: "#3b82f6", glow: "rgba(59,130,246,0.5)", dim: "rgba(59,130,246,0.12)",
+        time: 20,
+    },
+    {
+        name: "CROSS", desc: "กากบาท",
+        tiles: [[0,2],[1,2],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2]],
+        color: "#a855f7", glow: "rgba(168,85,247,0.5)", dim: "rgba(168,85,247,0.12)",
+        time: 18,
+    },
+    {
+        name: "SQUARE", desc: "สี่เหลี่ยม",
+        tiles: [[0,0],[0,1],[0,2],[0,3],[1,0],[1,3],[2,0],[2,3],[3,0],[3,1],[3,2],[3,3]],
+        color: "#f59e0b", glow: "rgba(245,158,11,0.5)", dim: "rgba(245,158,11,0.12)",
+        time: 15,
+    },
+    {
+        name: "ARROW", desc: "ลูกศร",
+        tiles: [[0,2],[1,1],[1,2],[1,3],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2],[5,2],[6,2]],
+        color: "#ef4444", glow: "rgba(239,68,68,0.5)", dim: "rgba(239,68,68,0.12)",
+        time: 15,
+    },
+];
+
+const G = {
+    mode: 'dual',
+    round: 0,
+    scoreA: 0, scoreB: 0,
+    active: false,
+    roundActive: false,
+    targetIdxs: [],   // absolute grid indices of target tiles
+    traced: new Set(),
+    aiTraced: new Set(),
+    aiOrder: [],
+    aiTimer: null,
+    timerIv: null,
+    roundTime: 0,
+    maxTime: 20,
+    pr: 13, pc: 2,
+    currentShape: null,
+};
+
+// ─── Helpers ───
+function centerShape(shape) {
+    let maxR = 0, maxC = 0;
+    shape.tiles.forEach(([r, c]) => { maxR = Math.max(maxR, r); maxC = Math.max(maxC, c); });
+    const offR = Math.floor((ROWS - maxR - 1) / 2);
+    const offC = Math.floor((COLS - maxC - 1) / 2);
+    return shape.tiles.map(([r, c]) => (r + offR) * COLS + (c + offC));
+}
+
+function getTiles(gridId) {
+    return Array.from(document.querySelectorAll(`#${gridId} .g-tile`));
+}
+
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+// ─── Grid Building ───
+function buildGrids() {
+    const grids = G.mode === 'single' ? ['grid-a'] : ['grid-a', 'grid-b'];
+    grids.forEach(id => {
+        const g = document.getElementById(id);
+        const playerEl = id === 'grid-a' ? document.getElementById('player') : null;
+        g.innerHTML = '';
+        for (let i = 0; i < TOTAL; i++) {
+            const t = document.createElement('div');
+            t.className = 'g-tile';
+            t.dataset.idx = i;
+            if (id === 'grid-a') {
+                t.addEventListener('click', () => {
+                    if (!G.roundActive) return;
+                    G.pr = Math.floor(i / COLS);
+                    G.pc = i % COLS;
+                    movePlayer();
+                    checkTrace();
+                });
+            }
+            g.appendChild(t);
+        }
+        if (playerEl) g.appendChild(playerEl);
+    });
+    if (G.mode === 'single') document.getElementById('grid-b').innerHTML = '';
+}
+
+// ─── Player ───
+function movePlayer() {
+    G.pr = Math.max(0, Math.min(ROWS - 1, G.pr));
+    G.pc = Math.max(0, Math.min(COLS - 1, G.pc));
+    const p = document.getElementById('player');
+    const grid = document.getElementById('grid-a');
+    const tiles = getTiles('grid-a');
+    const tile = tiles[G.pr * COLS + G.pc];
+    if (!tile || !grid) return;
+    const gRect = grid.getBoundingClientRect();
+    const tRect = tile.getBoundingClientRect();
+    p.style.width = tRect.width + 'px';
+    p.style.height = tRect.height + 'px';
+    p.style.left = (tRect.left - gRect.left) + 'px';
+    p.style.top = (tRect.top - gRect.top) + 'px';
+}
+
+// ─── Tracing ───
+function checkTrace() {
+    if (!G.roundActive) return;
+    const idx = G.pr * COLS + G.pc;
+    const tiles = getTiles('grid-a');
+    const tile = tiles[idx];
+    if (!tile) return;
+
+    if (G.targetIdxs.includes(idx) && !G.traced.has(idx)) {
+        G.traced.add(idx);
+        tile.classList.remove('target');
+        tile.classList.add('traced');
+        tile.style.background = G.currentShape.color;
+        tile.style.borderColor = G.currentShape.color;
+        tile.style.boxShadow = `0 0 12px ${G.currentShape.glow}`;
+        // Re-trigger animation
+        tile.style.animation = 'none'; void tile.offsetWidth; tile.style.animation = '';
+        updateProgress();
+
+        if (G.traced.size >= G.targetIdxs.length) {
+            playerCompletedRound();
+        }
+    } else if (!G.targetIdxs.includes(idx) && !tile.classList.contains('footprint')) {
+        tile.classList.add('footprint');
+        setTimeout(() => tile.classList.remove('footprint'), 600);
+    }
+}
+
+function updateProgress() {
+    const total = G.targetIdxs.length;
+    const doneA = G.traced.size;
+    document.getElementById('prog-text-a').textContent = `${doneA}/${total}`;
+    document.getElementById('prog-fill-a').style.width = (doneA / total * 100) + '%';
+
+    if (G.mode === 'dual') {
+        const doneB = G.aiTraced.size;
+        document.getElementById('prog-text-b').textContent = `${doneB}/${total}`;
+        document.getElementById('prog-fill-b').style.width = (doneB / total * 100) + '%';
+    }
+}
+
+// ─── Shape Preview ───
+function renderPreview(containerId, shape, cellSize) {
+    const el = document.getElementById(containerId);
+    let maxR = 0, maxC = 0;
+    shape.tiles.forEach(([r, c]) => { maxR = Math.max(maxR, r); maxC = Math.max(maxC, c); });
+    const rows = maxR + 1, cols = maxC + 1;
+    el.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+    el.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+    el.innerHTML = '';
+    const tileSet = new Set(shape.tiles.map(([r, c]) => `${r},${c}`));
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'sp-cell';
+            cell.style.width = cellSize + 'px';
+            cell.style.height = cellSize + 'px';
+            if (tileSet.has(`${r},${c}`)) {
+                cell.style.background = shape.color;
+                cell.style.boxShadow = `0 0 ${cellSize/2}px ${shape.glow}`;
+            } else {
+                cell.style.background = 'rgba(255,255,255,0.03)';
+            }
+            el.appendChild(cell);
+        }
+    }
+}
+
+// ─── Place Target Tiles on Grid ───
+function placeTargetTiles(gridId) {
+    const tiles = getTiles(gridId);
+    const shape = G.currentShape;
+    G.targetIdxs.forEach(idx => {
+        const tile = tiles[idx];
+        tile.classList.add('target');
+        tile.style.background = shape.dim;
+        tile.style.borderColor = shape.color;
+        tile.style.borderWidth = '1px';
+    });
+}
+
+// ─── AI Logic ───
+function startAI() {
+    if (G.mode === 'single') return;
+    G.aiOrder = shuffle([...G.targetIdxs]);
+    G.aiTraced = new Set();
+    aiTraceNext();
+}
+
+function aiTraceNext() {
+    if (!G.roundActive || G.mode === 'single') return;
+    const baseDelay = [1800, 1400, 1100, 900, 700][G.round] || 1000;
+    const delay = baseDelay + (Math.random() - 0.3) * 500;
+
+    G.aiTimer = setTimeout(() => {
+        if (!G.roundActive) return;
+        const remaining = G.aiOrder.filter(idx => !G.aiTraced.has(idx));
+        if (remaining.length === 0) return;
+
+        const idx = remaining[0];
+        G.aiTraced.add(idx);
+
+        // Visual on grid-b
+        const tiles = getTiles('grid-b');
+        const tile = tiles[idx];
+        if (tile) {
+            tile.classList.remove('target');
+            tile.classList.add('traced');
+            tile.style.background = G.currentShape.color;
+            tile.style.borderColor = G.currentShape.color;
+            tile.style.boxShadow = `0 0 12px ${G.currentShape.glow}`;
+            tile.style.animation = 'none'; void tile.offsetWidth; tile.style.animation = '';
+        }
+
+        updateProgress();
+
+        if (G.aiTraced.size >= G.targetIdxs.length) {
+            aiCompletedRound();
+        } else {
+            aiTraceNext();
+        }
+    }, delay);
+}
+
+function stopAI() {
+    if (G.aiTimer) { clearTimeout(G.aiTimer); G.aiTimer = null; }
+}
+
+// ─── Round Management ───
+function playerCompletedRound() {
+    if (!G.roundActive) return;
+    G.roundActive = false;
+    stopAI();
+    stopTimer();
+    G.scoreA++;
+    hud();
+
+    // Flash traced tiles
+    const tiles = getTiles('grid-a');
+    G.targetIdxs.forEach(idx => tiles[idx].classList.add('complete-flash'));
+
+    showResult('COMPLETE!', 'complete');
+
+    setTimeout(() => nextRound(), 1800);
+}
+
+function aiCompletedRound() {
+    if (!G.roundActive) return;
+    G.roundActive = false;
+    stopAI();
+    stopTimer();
+    G.scoreB++;
+    hud();
+
+    showResult('AI WINS ROUND!', 'timeout');
+
+    setTimeout(() => nextRound(), 1800);
+}
+
+function timeoutRound() {
+    if (!G.roundActive) return;
+    G.roundActive = false;
+    stopAI();
+    stopTimer();
+
+    if (G.mode === 'single') {
+        // Single mode: game over on timeout
+        showResult("TIME'S UP!", 'timeout');
+        setTimeout(() => endGame(), 1500);
+        return;
+    }
+
+    // Dual mode: nobody finished in time (shouldn't happen often since there's no timer in dual)
+    showResult("TIME'S UP!", 'timeout');
+    setTimeout(() => nextRound(), 1500);
+}
+
+function nextRound() {
+    G.round++;
+    if (G.round >= 5) {
+        endGame();
+        return;
+    }
+    startRound(G.round);
+}
+
+// ─── Timer (Single Mode) ───
+function startTimer() {
+    if (G.mode !== 'single') return;
+    G.maxTime = G.currentShape.time;
+    G.roundTime = G.maxTime;
+    document.getElementById('timer-track').style.display = '';
+    document.getElementById('hud-timer-chip').style.display = '';
+
+    G.timerIv = setInterval(() => {
+        if (!G.roundActive) return;
+        G.roundTime -= 0.1;
+        if (G.roundTime <= 0) { G.roundTime = 0; timeoutRound(); return; }
+
+        const pct = (G.roundTime / G.maxTime) * 100;
+        const f = document.getElementById('timer-fill');
+        f.style.width = pct + '%';
+        f.classList.toggle('urgent', G.roundTime < 5);
+        document.getElementById('h-time').textContent = Math.ceil(G.roundTime);
+    }, 100);
+}
+
+function stopTimer() {
+    if (G.timerIv) { clearInterval(G.timerIv); G.timerIv = null; }
+}
+
+// ─── Round Start ───
+function startRound(roundIdx) {
+    G.round = roundIdx;
+    G.roundActive = false;
+    G.currentShape = SHAPES[roundIdx];
+    G.targetIdxs = centerShape(G.currentShape);
+    G.traced = new Set();
+    G.aiTraced = new Set();
+
+    // Show round intro
+    document.getElementById('intro-round-label').textContent = `ROUND ${roundIdx + 1}`;
+    document.getElementById('intro-shape-name').innerHTML =
+        `<span style="color:${G.currentShape.color}">${G.currentShape.name}</span>`;
+    document.getElementById('intro-tiles').textContent = `${G.currentShape.tiles.length} TILES`;
+    renderPreview('intro-preview', G.currentShape, 16);
+    show('round-intro');
+
+    setTimeout(() => {
+        hide('round-intro');
+
+        // Setup grids with target tiles
+        buildGrids();
+        placeTargetTiles('grid-a');
+        if (G.mode === 'dual') placeTargetTiles('grid-b');
+
+        // Update HUD
+        document.getElementById('banner-text').textContent =
+            `ROUND ${roundIdx + 1} — ${G.currentShape.name}`;
+        renderPreview('banner-preview', G.currentShape, 8);
+        document.getElementById('h-round').textContent = `${roundIdx + 1}/5`;
+
+        // Reset progress
+        updateProgress();
+
+        // Player position
+        G.pr = 13; G.pc = 2;
+        requestAnimationFrame(() => movePlayer());
+
+        // GO!
+        G.roundActive = true;
+        startAI();
+        startTimer();
+        hud();
+    }, 2200);
+}
+
+// ─── Game Flow ───
+function beginGame(mode) {
+    G.mode = mode || 'dual';
+    G.round = 0;
+    G.scoreA = 0; G.scoreB = 0;
+    G.active = true;
+    G.roundActive = false;
+
+    const isSingle = G.mode === 'single';
+    document.body.classList.toggle('single-mode', isSingle);
+    document.getElementById('vs-divider').style.display = isSingle ? 'none' : '';
+    document.getElementById('side-b').style.display = isSingle ? 'none' : '';
+    document.getElementById('prog-row-b').style.display = isSingle ? 'none' : '';
+    document.getElementById('hud-ai').style.display = isSingle ? 'none' : '';
+    document.getElementById('timer-track').style.display = isSingle ? '' : 'none';
+    document.getElementById('hud-timer-chip').style.display = isSingle ? '' : 'none';
+    document.getElementById('label-a').textContent = isSingle ? 'SINGLE LANE' : 'YOU';
+
+    hide('menu'); hide('gameover');
+    show('countdown');
+    document.getElementById('game-screen').style.display = 'flex';
+    buildGrids();
+
+    let n = 3;
+    const el = document.getElementById('count-num');
+    el.textContent = n;
+    const iv = setInterval(() => {
+        n--;
+        if (n > 0) {
+            el.textContent = n;
+            el.className = 'countdown-num';
+            void el.offsetWidth;
+            el.className = 'countdown-num';
+        } else {
+            clearInterval(iv);
+            hide('countdown');
+            hud();
+            startRound(0);
+        }
+    }, 700);
+}
+
+function endGame() {
+    G.active = false;
+    G.roundActive = false;
+    stopAI();
+    stopTimer();
+
+    const isSingle = G.mode === 'single';
+
+    document.getElementById('go-score-a').textContent = G.scoreA;
+    document.getElementById('go-score-b').textContent = isSingle ? `${G.round}/5` : G.scoreB;
+    document.getElementById('go-label-a').textContent = isSingle ? 'SHAPES DONE' : 'YOU — ROUNDS';
+    document.getElementById('go-label-b').textContent = isSingle ? 'PROGRESS' : 'AI — ROUNDS';
+
+    const winner = document.getElementById('winner-text');
+    if (isSingle) {
+        winner.innerHTML = G.scoreA >= 5
+            ? '<span class="title-tracer">ALL CLEAR!</span>'
+            : `<span style="color:var(--accent);">${G.scoreA} SHAPES</span>`;
+    } else if (G.scoreA > G.scoreB) {
+        winner.innerHTML = '<span class="title-tracer">YOU WIN!</span>';
+    } else if (G.scoreB > G.scoreA) {
+        winner.innerHTML = '<span style="color:var(--team-b);">AI WINS!</span>';
+    } else {
+        winner.innerHTML = '<span style="color:var(--gold);">DRAW!</span>';
+    }
+
+    show('gameover');
+}
+
+function goMenu() {
+    hide('gameover');
+    document.getElementById('game-screen').style.display = 'none';
+    show('menu');
+}
+
+// ─── UI Helpers ───
+function hud() {
+    document.getElementById('h-score-a').textContent = G.scoreA;
+    document.getElementById('h-score-b').textContent = G.scoreB;
+}
+
+function showResult(text, type) {
+    const el = document.getElementById('result-popup');
+    const txt = document.getElementById('result-text');
+    txt.textContent = text;
+    txt.className = 'result-text result-' + type;
+    el.classList.add('show');
+    txt.style.animation = 'none'; void txt.offsetWidth; txt.style.animation = '';
+    setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ─── Keyboard ───
+document.addEventListener('keydown', e => {
+    if (!G.roundActive) return;
+    let dr = 0, dc = 0;
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') dr = -1;
+    else if (k === 's' || k === 'arrowdown') dr = 1;
+    else if (k === 'a' || k === 'arrowleft') dc = -1;
+    else if (k === 'd' || k === 'arrowright') dc = 1;
+    else return;
+    e.preventDefault();
+    G.pr += dr; G.pc += dc;
+    movePlayer();
+    checkTrace();
+});
+
+window.addEventListener('resize', () => { if (G.active) movePlayer(); });
+</script>
+</body>
+</html>
