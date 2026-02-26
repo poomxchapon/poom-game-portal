@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Luck Castle: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 10;
+            --rows: 10;
+            --tile-size: min(4.8vw, 4.8vh, 52px);
+            --gap: 2px;
+            --gold: #fbbf24;
+            --gold-dim: #d97706;
+            --gold-glow: rgba(251,191,36,0.4);
+            --cyan: #00e5ff;
+            --correct: #22c55e;
+            --wrong: #ef4444;
+            --warn: #f59e0b;
+            --purple: #a855f7;
+            --bg: #0a0710;
+            --panel: #110d1c;
+            --panel-border: #251e38;
+            --floor: #15102a;
+            --zone-a: #ef4444;
+            --zone-b: #3b82f6;
+            --zone-c: #f59e0b;
+            --zone-d: #22c55e;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none;
+            touch-action: none;
+        }
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* ═══ Scanline ═══ */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(251,191,36,0.006) 2px, rgba(251,191,36,0.006) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* ═══ Overlays ═══ */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(6,4,12,0.96);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+            padding: 20px;
+        }
+        .overlay.hidden { display: none; }
+
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            letter-spacing: 6px;
+            color: var(--gold);
+            text-shadow: 0 0 30px var(--gold-glow);
+            line-height: 1;
+        }
+        .menu-sub {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 6px;
+            color: #444;
+        }
+        .menu-divider {
+            width: 100px; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+            opacity: 0.3;
+            margin: 16px auto;
+        }
+
+        /* ═══ Buttons ═══ */
+        .btn-primary {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.8rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            color: #000;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+            border: none; padding: 14px 44px;
+            border-radius: 10px; cursor: pointer;
+            box-shadow: 0 0 20px var(--gold-glow), 0 4px 16px rgba(0,0,0,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 30px var(--gold-glow); }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-ghost {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.65rem;
+            letter-spacing: 2px; color: var(--gold);
+            background: rgba(251,191,36,0.08);
+            border: 1px solid rgba(251,191,36,0.25);
+            padding: 10px 28px; border-radius: 8px;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: rgba(251,191,36,0.15); }
+
+        /* ═══ Game Layout ═══ */
+        #game-screen {
+            display: none;
+            width: 100vw; height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        /* Top HUD */
+        .hud-top {
+            display: flex; align-items: center; gap: 16px;
+            width: 100%; max-width: 640px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .hud-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 12px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+        .hud-chip .val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 0.9rem;
+        }
+
+        /* Command */
+        #cmd-bar {
+            width: 100%; max-width: 640px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            text-align: center;
+            position: relative;
+        }
+        #cmd-text {
+            font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.4;
+        }
+        #cmd-num {
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--gold);
+            background: var(--bg);
+            padding: 2px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+        }
+
+        /* Choice buttons */
+        .choice-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%; max-width: 640px;
+        }
+        .ch-btn {
+            padding: 10px 8px;
+            border-radius: 10px;
+            border: 2px solid;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+            font-weight: 600;
+            color: #fff;
+            text-align: center;
+            transition: all 0.15s;
+            background: rgba(0,0,0,0.3);
+            min-height: 44px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; overflow: hidden;
+        }
+        .ch-btn:hover { transform: scale(1.02); }
+        .ch-btn:active { transform: scale(0.97); }
+        .ch-btn.a { border-color: var(--zone-a); }
+        .ch-btn.b { border-color: var(--zone-b); }
+        .ch-btn.c { border-color: var(--zone-c); }
+        .ch-btn.d { border-color: var(--zone-d); }
+        .ch-btn.a:hover { background: rgba(239,68,68,0.15); }
+        .ch-btn.b:hover { background: rgba(59,130,246,0.15); }
+        .ch-btn.c:hover { background: rgba(245,158,11,0.15); }
+        .ch-btn.d:hover { background: rgba(34,197,94,0.15); }
+        .ch-btn:disabled { cursor: default; transform: none !important; }
+
+        /* Zone active (standing in zone) */
+        .ch-btn.zone-active { animation: zonePulse 0.8s ease-in-out infinite; }
+        .ch-btn.zone-active.a { background: rgba(239,68,68,0.3) !important; box-shadow: 0 0 20px rgba(239,68,68,0.5); }
+        .ch-btn.zone-active.b { background: rgba(59,130,246,0.3) !important; box-shadow: 0 0 20px rgba(59,130,246,0.5); }
+        .ch-btn.zone-active.c { background: rgba(245,158,11,0.3) !important; box-shadow: 0 0 20px rgba(245,158,11,0.5); }
+        .ch-btn.zone-active.d { background: rgba(34,197,94,0.3) !important; box-shadow: 0 0 20px rgba(34,197,94,0.5); }
+        @keyframes zonePulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.04);} }
+        .ch-btn.zone-locking::after {
+            content: ''; position: absolute; bottom: 0; left: 0;
+            height: 4px; width: 0%; border-radius: 2px;
+            animation: lockProgress 3s linear forwards;
+        }
+        .ch-btn.zone-locking.a::after { background: var(--zone-a); box-shadow: 0 0 8px var(--zone-a); }
+        .ch-btn.zone-locking.b::after { background: var(--zone-b); box-shadow: 0 0 8px var(--zone-b); }
+        .ch-btn.zone-locking.c::after { background: var(--zone-c); box-shadow: 0 0 8px var(--zone-c); }
+        .ch-btn.zone-locking.d::after { background: var(--zone-d); box-shadow: 0 0 8px var(--zone-d); }
+        @keyframes lockProgress { from{width:0%;} to{width:100%;} }
+
+        /* Reveal state */
+        .ch-btn.revealed { opacity: 1 !important; }
+        .ch-btn .pts-badge {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%) scale(0);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 1.2rem;
+            padding: 4px 12px; border-radius: 8px;
+            pointer-events: none;
+            animation: revealPop 0.4s ease-out forwards;
+        }
+        @keyframes revealPop { 0%{transform:translate(-50%,-50%) scale(0);} 60%{transform:translate(-50%,-50%) scale(1.2);} 100%{transform:translate(-50%,-50%) scale(1);} }
+        .pts-badge.high { background: rgba(34,197,94,0.9); color: #fff; }
+        .pts-badge.mid { background: rgba(59,130,246,0.8); color: #fff; }
+        .pts-badge.zero { background: rgba(100,100,100,0.8); color: #888; }
+        .pts-badge.neg { background: rgba(239,68,68,0.9); color: #fff; }
+        .pts-badge.jackpot { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #000; box-shadow: 0 0 20px rgba(251,191,36,0.6); }
+        .ch-btn.my-pick { box-shadow: 0 0 0 3px #fff, 0 0 20px rgba(255,255,255,0.3); }
+
+        /* Timer bar */
+        .timer-track {
+            width: 100%; max-width: 640px;
+            height: 5px;
+            background: #1a1a30;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold), var(--cyan));
+            border-radius: 3px;
+            transition: width 0.15s linear;
+        }
+        .timer-fill.urgent { background: linear-gradient(90deg, var(--wrong), #ff8800); }
+
+        /* Grid */
+        #grid-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap);
+            padding: 4px;
+            background: #0a0a18;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(251,191,36,0.03), inset 0 0 40px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .tile {
+            width: 100%; height: 100%;
+            background-color: var(--floor);
+            border-radius: 2px;
+            transition: background-color 0.12s, box-shadow 0.12s;
+            cursor: pointer;
+        }
+        .tile.za { background: var(--zone-a); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zb { background: var(--zone-b); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zc { background: var(--zone-c); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zd { background: var(--zone-d); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.za-dim { background: rgba(239,68,68,0.12); }
+        .tile.zb-dim { background: rgba(59,130,246,0.12); }
+        .tile.zc-dim { background: rgba(245,158,11,0.12); }
+        .tile.zd-dim { background: rgba(34,197,94,0.12); }
+        .tile.flash-gold { background: var(--gold) !important; box-shadow: 0 0 16px var(--gold) !important; }
+        .tile.flash-bad { background: #444 !important; }
+
+        /* Player */
+        #player {
+            position: absolute;
+            width: var(--tile-size); height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fef3c7, #fbbf24 60%, #b45309);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 0 14px var(--gold), 0 0 4px #fff;
+            z-index: 30;
+            transition: left 0.08s ease-out, top 0.08s ease-out;
+            pointer-events: none;
+        }
+        #player::after {
+            content: '';
+            width: 35%; height: 35%;
+            background: rgba(255,255,255,0.55);
+            border-radius: 50%;
+            position: absolute; top: 18%; left: 20%;
+            filter: blur(1px);
+        }
+
+        /* Zone labels */
+        .zone-lbl {
+            position: absolute;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 700;
+            font-size: clamp(11px, 1.8vw, 16px);
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.9);
+            z-index: 25;
+            pointer-events: none;
+            text-align: center;
+            max-width: 45%;
+            line-height: 1.2;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .zone-lbl.lbl-a { background: rgba(239,68,68,0.7); }
+        .zone-lbl.lbl-b { background: rgba(59,130,246,0.7); }
+        .zone-lbl.lbl-c { background: rgba(245,158,11,0.7); }
+        .zone-lbl.lbl-d { background: rgba(34,197,94,0.7); }
+
+        /* Hint bar */
+        .hint-bar {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            color: #444;
+            text-align: center;
+        }
+
+        /* Big point popup */
+        #point-popup {
+            position: fixed; inset: 0;
+            display: none; align-items: center; justify-content: center;
+            z-index: 90; pointer-events: none;
+        }
+        #point-popup.show { display: flex; }
+        .point-big {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(3rem, 10vw, 6rem);
+            animation: pointPop 1s ease-out forwards;
+        }
+        .point-big.good { color: var(--gold); text-shadow: 0 0 60px var(--gold-glow); }
+        .point-big.bad { color: #666; text-shadow: none; }
+        .point-big.neg { color: var(--wrong); text-shadow: 0 0 40px rgba(239,68,68,0.4); }
+        .point-big.jackpot { color: var(--gold); text-shadow: 0 0 80px var(--gold-glow), 0 0 120px var(--gold-glow); }
+        @keyframes pointPop {
+            0% { transform: scale(0); opacity: 0; }
+            30% { transform: scale(1.3); opacity: 1; }
+            60% { transform: scale(1); }
+            100% { transform: scale(1) translateY(-20px); opacity: 0; }
+        }
+
+        /* Countdown */
+        .countdown-num {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6rem; font-weight: 900;
+            color: var(--gold);
+            text-shadow: 0 0 60px var(--gold-glow);
+            animation: countIn 0.5s ease-out;
+        }
+        @keyframes countIn {
+            0% { transform: scale(1.6); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        /* ═══ Game Over ═══ */
+        .stat-box {
+            text-align: center; padding: 12px 16px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+        }
+        .stat-val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 1.6rem;
+        }
+        .stat-label { font-size: 0.6rem; color: #555; margin-top: 2px; }
+
+        .result-row {
+            display: flex; gap: 8px; align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #1a1a35;
+            font-size: 0.75rem;
+        }
+        .result-dot {
+            width: 22px; height: 22px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.6rem; font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Sparkle particles */
+        .sparkle {
+            position: fixed;
+            width: 6px; height: 6px;
+            background: var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 95;
+            animation: sparkleAnim 0.8s ease-out forwards;
+        }
+        @keyframes sparkleAnim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0) translateY(-40px); opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-height: 700px) {
+            :root { --tile-size: min(3.5vw, 3.5vh, 38px); }
+            #cmd-bar { padding: 10px 16px; }
+            .choice-btns { gap: 6px; }
+            .ch-btn { padding: 7px 6px; min-height: 38px; }
+        }
+        @media (max-width: 500px) {
+            :root { --tile-size: min(8vw, 5vh, 40px); }
+            .hud-chip { padding: 3px 8px; font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!-- ═══ MAIN MENU ═══ -->
+<div id="menu" class="overlay">
+    <div style="text-align:center;max-width:400px;width:90vw;">
+        <div class="menu-sub">CSM-C1-011 &middot; FORTAL INTERACTIVE</div>
+        <div class="menu-title" style="margin:6px 0 2px;">LUCK CASTLE</div>
+        <div class="menu-sub">LED FLOOR PARTY GAME</div>
+        <div class="menu-divider"></div>
+
+        <div style="font-size:0.9rem;color:#888;margin-bottom:6px;">เกมวัดดวง</div>
+        <div style="font-size:0.75rem;color:#555;max-width:320px;margin:0 auto 20px;line-height:1.6;">
+            เดินไปยืนบนโซนที่คิดว่าโชคดี<br>
+            รอเฉลยคะแนน — ดวงดี = คะแนนเยอะ!<br>
+            10 ด่าน สะสมคะแนนให้มากที่สุด
+        </div>
+
+        <button class="btn-primary" onclick="beginGame()">เสี่ยงดวง!</button>
+        <div style="font-size:0.6rem;color:#333;margin-top:10px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+            WASD / ARROWS &middot; ยืนค้าง 3 วิ = เลือก &middot; 10 ROUNDS
+        </div>
+    </div>
+</div>
+
+<!-- ═══ COUNTDOWN ═══ -->
+<div id="countdown" class="overlay hidden">
+    <div id="count-num" class="countdown-num"></div>
+</div>
+
+<!-- ═══ GAME OVER ═══ -->
+<div id="gameover" class="overlay hidden">
+    <div style="text-align:center;max-width:420px;width:90vw;">
+        <div class="menu-sub" style="margin-bottom:4px;">GAME OVER</div>
+        <div id="final-score" class="menu-title" style="font-size:2.5rem;"></div>
+        <div class="menu-sub" style="margin-top:2px;">POINTS</div>
+        <div id="luck-rank" style="font-size:1rem;margin:8px 0;"></div>
+        <div class="menu-divider"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div class="stat-box"><div id="s-best" class="stat-val" style="color:var(--gold);">0</div><div class="stat-label">BEST ROUND</div></div>
+            <div class="stat-box"><div id="s-worst" class="stat-val" style="color:#666;">0</div><div class="stat-label">WORST ROUND</div></div>
+            <div class="stat-box"><div id="s-avg" class="stat-val" style="color:var(--cyan);">0</div><div class="stat-label">AVERAGE</div></div>
+        </div>
+
+        <div id="results-list" style="text-align:left;max-height:180px;overflow-y:auto;margin-bottom:16px;"></div>
+
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn-primary" onclick="beginGame()" style="font-size:0.7rem;padding:12px 28px;">PLAY AGAIN</button>
+            <button class="btn-ghost" onclick="goMenu()">MENU</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ POINT POPUP ═══ -->
+<div id="point-popup"><div id="point-text" class="point-big"></div></div>
+
+<!-- ═══ GAME SCREEN ═══ -->
+<div id="game-screen">
+    <div class="hud-top">
+        <div class="hud-chip"><span style="color:#888;">Round</span> <span id="h-round" class="val" style="color:var(--gold);">1</span><span style="color:#444;font-size:0.7rem;">/10</span></div>
+        <div class="hud-chip"><span style="color:#888;">Score</span> <span id="h-score" class="val" style="color:var(--gold);">0</span></div>
+        <div class="hud-chip"><span style="color:#888;">Time</span> <span id="h-time" class="val" style="color:var(--cyan);">8</span></div>
+    </div>
+
+    <div id="cmd-bar">
+        <div id="cmd-num">ROUND 1 / 10</div>
+        <div id="cmd-text">—</div>
+    </div>
+
+    <div class="choice-btns" id="choice-btns">
+        <button class="ch-btn a" data-i="0" onclick="goToZone(0)"></button>
+        <button class="ch-btn b" data-i="1" onclick="goToZone(1)"></button>
+        <button class="ch-btn c" data-i="2" onclick="goToZone(2)"></button>
+        <button class="ch-btn d" data-i="3" onclick="goToZone(3)"></button>
+    </div>
+
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+
+    <div id="grid-wrap">
+        <div id="game-grid"></div>
+        <div id="player"></div>
+    </div>
+
+    <div class="hint-bar" id="hint-bar">เดินไปยืนในโซนที่คิดว่าโชคดี &middot; WASD / ARROWS</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  LUCK CASTLE — Engine v1
+// ═══════════════════════════════════════════
+const COLS=10, ROWS=10, QTIME=8, ROUNDS=10;
+const ZCOLORS=['za','zb','zc','zd'];
+const ZDIM=['za-dim','zb-dim','zc-dim','zd-dim'];
+
+const G = {
+    round:0, score:0, results:[],
+    pr:5, pc:5, timer:QTIME, tiv:null,
+    confirmed:false, active:false,
+    currentZone:-1, lockTimer:null,
+    challenges:[], pointMap:[],
+};
+
+// ─── Challenge Pool ───
+const CHALLENGES = [
+    { cmd:"เลือกสีที่คิดว่าโชคดี", opts:["แดง","น้ำเงิน","เหลือง","เขียว"] },
+    { cmd:"เลือกตัวเลขโชคลาภ", opts:["7","8","9","13"] },
+    { cmd:"เลือกธาตุที่เป็นตัวคุณ", opts:["ไฟ","น้ำ","ลม","ดิน"] },
+    { cmd:"เลือกอัญมณีแห่งโชค", opts:["ทับทิม","ไพลิน","มรกต","เพชร"] },
+    { cmd:"เลือกทิศที่นำโชค", opts:["เหนือ","ใต้","ตะวันออก","ตะวันตก"] },
+    { cmd:"เลือกสัตว์นำโชค", opts:["มังกร","หงส์","สิงโต","นกฮูก"] },
+    { cmd:"เลือกประตูปราสาท", opts:["ทอง","เงิน","ทองแดง","เหล็ก"] },
+    { cmd:"เลือกหีบสมบัติ", opts:["ทอง","เงิน","ไม้","คริสตัล"] },
+    { cmd:"เลือกคาถาเสี่ยงโชค", opts:["เสริมพลัง","เกราะ","เรียกทอง","สายฟ้า"] },
+    { cmd:"เลือกดาวนำทาง", opts:["ดาวเหนือ","ดาวใต้","ดาวรุ่ง","ดาวตก"] },
+    { cmd:"เลือกห้องในปราสาท", opts:["บัลลังก์","ห้องสมบัติ","ห้องลับ","สวนลอย"] },
+    { cmd:"เลือกอาวุธแห่งโชค", opts:["ดาบ","ธนู","ไม้เท้า","โล่"] },
+    { cmd:"เลือกเครื่องดื่มวิเศษ", opts:["ยาพลัง","น้ำทอง","ชาวิเศษ","น้ำผลไม้"] },
+    { cmd:"เลือกเส้นทางลึกลับ", opts:["ถ้ำมังกร","สะพานรุ้ง","ป่าเวท","ทะเลทราย"] },
+    { cmd:"เลือกฤดูกาลแห่งโชค", opts:["ร้อน","ฝน","หนาว","ใบไม้ร่วง"] },
+];
+
+// Point distributions (shuffled per round)
+const POINT_POOLS = [
+    [0, 5, 10, 20],
+    [5, 5, 10, 15],
+    [0, 0, 15, 25],
+    [0, 10, 10, 10],
+    [5, 5, 5, 30],
+    [-5, 10, 10, 20],
+    [0, 0, 0, 50],
+    [10, 10, 10, 10],
+    [0, 5, 15, 20],
+    [-10, 5, 20, 30],
+];
+
+// ─── Zones (10x10 grid, 4 quadrants) ───
+function zones(){
+    return [
+        {sr:1,er:4,sc:0,ec:4},
+        {sr:1,er:4,sc:5,ec:9},
+        {sr:6,er:9,sc:0,ec:4},
+        {sr:6,er:9,sc:5,ec:9},
+    ];
+}
+
+function idx(r,c){return r*COLS+c;}
+
+// ─── Shuffle ───
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+// ─── Build Grid ───
+function buildGrid(){
+    const g=document.getElementById('game-grid');
+    g.innerHTML='';
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const d=document.createElement('div');
+        d.className='tile';
+        d.dataset.r=r;d.dataset.c=c;
+        d.addEventListener('click',()=>{G.pr=r;G.pc=c;moveP();checkZone();});
+        g.appendChild(d);
+    }
+}
+
+function moveP(){
+    G.pr=Math.max(0,Math.min(ROWS-1,G.pr));
+    G.pc=Math.max(0,Math.min(COLS-1,G.pc));
+    const p=document.getElementById('player');
+    const grid=document.getElementById('game-grid');
+    const tile=document.querySelector(`.tile[data-r="${G.pr}"][data-c="${G.pc}"]`);
+    if(!tile) return;
+    p.style.width=tile.offsetWidth+'px';
+    p.style.height=tile.offsetHeight+'px';
+    p.style.left=(grid.offsetLeft+tile.offsetLeft)+'px';
+    p.style.top=(grid.offsetTop+tile.offsetTop)+'px';
+}
+
+// ─── Display Zones ───
+function showZones(opts){
+    const tiles=document.querySelectorAll('.tile');
+    tiles.forEach(t=>t.className='tile');
+    const zz=zones();
+    zz.forEach((z,i)=>{
+        if(i>=opts.length) return;
+        for(let r=z.sr;r<=z.er;r++) for(let c=z.sc;c<=z.ec;c++)
+            tiles[idx(r,c)].classList.add(ZDIM[i]);
+        const cr=Math.floor((z.sr+z.er)/2), cc=Math.floor((z.sc+z.ec)/2);
+        for(let r=cr;r<=cr+1;r++) for(let c=cc;c<=cc+1;c++)
+            if(r<ROWS&&c<COLS){ tiles[idx(r,c)].classList.remove(ZDIM[i]); tiles[idx(r,c)].classList.add(ZCOLORS[i]); }
+    });
+
+    const btns=document.querySelectorAll('.ch-btn');
+    btns.forEach((b,i)=>{
+        b.textContent=opts[i]||'';
+        b.disabled=false;
+        b.className='ch-btn '+['a','b','c','d'][i];
+        b.style.display=i<opts.length?'flex':'none';
+        b.querySelectorAll('.pts-badge').forEach(p=>p.remove());
+    });
+
+    // Zone labels
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    setTimeout(()=>{
+        const grid=document.getElementById('game-grid');
+        const wrap=document.getElementById('grid-wrap');
+        zz.forEach((z,i)=>{
+            if(i>=opts.length) return;
+            const cr=Math.floor((z.sr+z.er)/2), cc=Math.floor((z.sc+z.ec)/2);
+            const refTile=document.querySelector(`.tile[data-r="${cr}"][data-c="${cc}"]`);
+            if(!refTile) return;
+            const lbl=document.createElement('div');
+            lbl.className='zone-lbl lbl-'+['a','b','c','d'][i];
+            lbl.textContent=opts[i];
+            lbl.style.left=(grid.offsetLeft+refTile.offsetLeft)+'px';
+            lbl.style.top=(grid.offsetTop+refTile.offsetTop)+'px';
+            wrap.appendChild(lbl);
+        });
+    },60);
+}
+
+// ─── Zone detection ───
+function checkZone(){
+    if(!G.active||G.confirmed) return;
+    const zz=zones();
+    let found=-1;
+    for(let i=0;i<zz.length;i++){
+        const z=zz[i];
+        if(G.pr>=z.sr&&G.pr<=z.er&&G.pc>=z.sc&&G.pc<=z.ec){found=i;break;}
+    }
+    if(found!==G.currentZone){
+        clearTimeout(G.lockTimer); G.lockTimer=null;
+        G.currentZone=found;
+        updateZoneIndicator();
+        if(found>=0){
+            G.lockTimer=setTimeout(()=>{
+                if(!G.confirmed&&G.active&&G.currentZone>=0){
+                    clearInterval(G.tiv);
+                    confirmChoice(G.currentZone);
+                }
+            },3000);
+        }
+    }
+}
+
+function updateZoneIndicator(){
+    const btns=document.querySelectorAll('.ch-btn');
+    btns.forEach((b,i)=>{
+        const isActive=i===G.currentZone;
+        b.classList.toggle('zone-active',isActive);
+        if(!isActive) b.classList.remove('zone-locking');
+    });
+    if(G.currentZone>=0){
+        const btn=btns[G.currentZone];
+        if(!btn.classList.contains('zone-locking')){
+            void btn.offsetWidth;
+            btn.classList.add('zone-locking');
+        }
+    }
+    const hint=document.getElementById('hint-bar');
+    if(G.currentZone>=0){
+        const labels=['A','B','C','D'];
+        hint.textContent='เลือก: '+labels[G.currentZone]+' — ยืนค้าง 3 วิ เพื่อยืนยัน';
+        hint.style.color='var(--gold)';
+    } else {
+        hint.textContent='เดินไปยืนในโซนที่คิดว่าโชคดี · WASD / ARROWS';
+        hint.style.color='';
+    }
+}
+
+function goToZone(i){
+    if(!G.active||G.confirmed) return;
+    const zz=zones();
+    if(i>=zz.length) return;
+    const z=zz[i];
+    G.pr=Math.floor((z.sr+z.er)/2);
+    G.pc=Math.floor((z.sc+z.ec)/2);
+    moveP();
+    checkZone();
+}
+
+// ─── Confirm & Reveal ───
+function confirmChoice(ci){
+    G.confirmed=true;
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+    clearInterval(G.tiv);
+
+    const pts=G.pointMap;
+    const myPts=pts[ci];
+    G.score+=myPts;
+    const ch=G.challenges[G.round];
+    G.results.push({cmd:ch.cmd, pick:ch.opts[ci], pts:myPts, allPts:[...pts]});
+
+    const btns=document.querySelectorAll('.ch-btn');
+    btns.forEach(b=>{b.disabled=true;b.classList.remove('zone-active','zone-locking');});
+    btns[ci].classList.add('my-pick');
+
+    // Reveal each zone with delay
+    revealZones(pts, ci, 0);
+}
+
+function revealZones(pts, myPick, i){
+    if(i>=4){
+        // Show big popup for player's points
+        setTimeout(()=>{
+            showPointPopup(pts[myPick]);
+            hud();
+            setTimeout(()=>nextRound(), 1200);
+        }, 300);
+        return;
+    }
+    const btns=document.querySelectorAll('.ch-btn');
+    const tiles=document.querySelectorAll('.tile');
+    const zz=zones();
+
+    setTimeout(()=>{
+        const btn=btns[i];
+        const p=pts[i];
+        const badge=document.createElement('div');
+        badge.className='pts-badge '+ptsClass(p);
+        badge.textContent=(p>0?'+':'')+p;
+        btn.appendChild(badge);
+        btn.classList.add('revealed');
+        btn.style.opacity='0.5';
+        if(i===myPick) btn.style.opacity='1';
+
+        // Flash grid zone
+        const z=zz[i];
+        if(p>=20){
+            for(let r=z.sr;r<=z.er;r++) for(let c=z.sc;c<=z.ec;c++) tiles[idx(r,c)].classList.add('flash-gold');
+        } else if(p<=0){
+            for(let r=z.sr;r<=z.er;r++) for(let c=z.sc;c<=z.ec;c++) tiles[idx(r,c)].classList.add('flash-bad');
+        }
+
+        revealZones(pts, myPick, i+1);
+    }, 350);
+}
+
+function ptsClass(p){
+    if(p>=30) return 'jackpot';
+    if(p>=15) return 'high';
+    if(p>0) return 'mid';
+    if(p===0) return 'zero';
+    return 'neg';
+}
+
+function showPointPopup(pts){
+    const el=document.getElementById('point-popup');
+    const txt=document.getElementById('point-text');
+    txt.textContent=(pts>0?'+':'')+pts;
+    txt.className='point-big '+(pts>=30?'jackpot':pts>=10?'good':pts>0?'good':pts===0?'bad':'neg');
+    el.classList.add('show');
+    // Restart animation
+    txt.style.animation='none'; void txt.offsetWidth; txt.style.animation='';
+
+    if(pts>=15) spawnSparkles(8);
+
+    setTimeout(()=>el.classList.remove('show'),1000);
+}
+
+function spawnSparkles(n){
+    for(let i=0;i<n;i++){
+        const s=document.createElement('div');
+        s.className='sparkle';
+        s.style.left=(40+Math.random()*20)+'vw';
+        s.style.top=(30+Math.random()*20)+'vh';
+        s.style.animationDelay=(Math.random()*0.3)+'s';
+        document.body.appendChild(s);
+        setTimeout(()=>s.remove(),1200);
+    }
+}
+
+// ─── Timer expired ───
+function timeUp(){
+    if(G.confirmed) return;
+    clearInterval(G.tiv);
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+
+    if(G.currentZone>=0){
+        confirmChoice(G.currentZone);
+    } else {
+        // No pick — get 0 points
+        G.confirmed=true;
+        const ch=G.challenges[G.round];
+        G.results.push({cmd:ch.cmd, pick:'ไม่ได้เลือก', pts:0, allPts:[...G.pointMap]});
+        const btns=document.querySelectorAll('.ch-btn');
+        btns.forEach(b=>{b.disabled=true;b.classList.remove('zone-active','zone-locking');});
+        revealZones(G.pointMap, -1, 0);
+        document.getElementById('hint-bar').textContent='ไม่ได้เลือก — ได้ 0 คะแนน';
+        document.getElementById('hint-bar').style.color='var(--wrong)';
+    }
+}
+
+// ─── Round Flow ───
+function nextRound(){
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    G.round++;
+    if(G.round>=ROUNDS){endGame();return;}
+    showRound();
+}
+
+function showRound(){
+    const ch=G.challenges[G.round];
+    G.confirmed=false;
+    G.timer=QTIME;
+    G.pr=5;G.pc=5;
+    G.currentZone=-1;
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+
+    // Generate random points for this round
+    const pool=shuffle(POINT_POOLS)[0];
+    G.pointMap=shuffle(pool);
+
+    document.getElementById('cmd-text').textContent=ch.cmd;
+    document.getElementById('cmd-num').textContent=`ROUND ${G.round+1} / ${ROUNDS}`;
+    document.getElementById('h-round').textContent=G.round+1;
+
+    showZones(ch.opts);
+    moveP();
+    hud();
+    startTimer();
+}
+
+function startTimer(){
+    clearInterval(G.tiv);
+    G.timer=QTIME;
+    updTimer();
+    G.tiv=setInterval(()=>{
+        G.timer-=0.1;
+        if(G.timer<=0){G.timer=0;clearInterval(G.tiv);timeUp();}
+        updTimer();
+    },100);
+}
+
+function updTimer(){
+    const pct=(G.timer/QTIME)*100;
+    const f=document.getElementById('timer-fill');
+    f.style.width=pct+'%';
+    f.classList.toggle('urgent',G.timer<3);
+    document.getElementById('h-time').textContent=Math.ceil(G.timer);
+    if(G.timer<3&&G.currentZone<0&&!G.confirmed){
+        document.getElementById('hint-bar').textContent='รีบเลือก!';
+        document.getElementById('hint-bar').style.color='var(--wrong)';
+    }
+}
+
+function hud(){
+    document.getElementById('h-score').textContent=G.score;
+}
+
+// ─── Game Start / End ───
+function beginGame(){
+    G.challenges=shuffle(CHALLENGES).slice(0,ROUNDS);
+    G.round=0; G.score=0; G.results=[]; G.active=false;
+    hide('menu'); hide('gameover');
+    show('countdown');
+    document.getElementById('game-screen').style.display='flex';
+    buildGrid();
+
+    let n=3;
+    const el=document.getElementById('count-num');
+    el.textContent=n;
+    const iv=setInterval(()=>{
+        n--;
+        if(n>0){el.textContent=n;el.className='countdown-num';void el.offsetWidth;el.className='countdown-num';}
+        else{clearInterval(iv);hide('countdown');G.active=true;showRound();}
+    },700);
+}
+
+function endGame(){
+    G.active=false; clearInterval(G.tiv);
+    clearTimeout(G.lockTimer);
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+
+    const ptsArr=G.results.map(r=>r.pts);
+    const best=Math.max(...ptsArr);
+    const worst=Math.min(...ptsArr);
+    const avg=Math.round(ptsArr.reduce((a,b)=>a+b,0)/ptsArr.length);
+
+    document.getElementById('final-score').textContent=G.score;
+    document.getElementById('s-best').textContent='+'+best;
+    document.getElementById('s-worst').textContent=(worst>=0?'+':'')+worst;
+    document.getElementById('s-avg').textContent=avg;
+
+    // Luck rank
+    let rank='';
+    if(G.score>=200) rank='<span style="color:var(--gold);">ราชาแห่งโชคชะตา</span>';
+    else if(G.score>=150) rank='<span style="color:var(--gold);">โชคดีสุดๆ</span>';
+    else if(G.score>=100) rank='<span style="color:var(--cyan);">ดวงดีมาก</span>';
+    else if(G.score>=60) rank='<span style="color:var(--correct);">ดวงดี</span>';
+    else if(G.score>=30) rank='<span style="color:#888;">ดวงกลางๆ</span>';
+    else rank='<span style="color:var(--wrong);">ดวงซวย...</span>';
+    document.getElementById('luck-rank').innerHTML=rank;
+
+    document.getElementById('results-list').innerHTML=G.results.map((r,i)=>{
+        const col=r.pts>=15?'var(--gold)':r.pts>0?'var(--cyan)':r.pts===0?'#666':'var(--wrong)';
+        return `<div class="result-row">
+            <div class="result-dot" style="background:${r.pts>0?'rgba(251,191,36,0.15)':'rgba(100,100,100,0.15)'};color:${col};">${r.pts>=0?'+':''}${r.pts}</div>
+            <div><div style="color:#bbb;">${r.cmd}</div><div style="color:${col};font-size:0.65rem;">เลือก: ${r.pick} → ${r.pts>=0?'+':''}${r.pts} คะแนน</div></div>
+        </div>`;
+    }).join('');
+    show('gameover');
+}
+
+function goMenu(){
+    hide('gameover');
+    document.getElementById('game-screen').style.display='none';
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    show('menu');
+}
+
+// ─── Keyboard ───
+document.addEventListener('keydown',e=>{
+    if(!G.active) return;
+    let dr=0,dc=0;
+    const k=e.key.toLowerCase();
+    if(k==='w'||k==='arrowup') dr=-1;
+    else if(k==='s'||k==='arrowdown') dr=1;
+    else if(k==='a'||k==='arrowleft') dc=-1;
+    else if(k==='d'||k==='arrowright') dc=1;
+    else if(k>='1'&&k<='4'){e.preventDefault();goToZone(parseInt(k)-1);return;}
+    else return;
+    e.preventDefault();
+    G.pr+=dr;G.pc+=dc;
+    moveP();checkZone();
+});
+
+window.addEventListener('resize',()=>{if(G.active)moveP();});
+
+// ─── Helpers ───
+function show(id){document.getElementById(id).classList.remove('hidden');}
+function hide(id){document.getElementById(id).classList.add('hidden');}
+</script>
+</body>
+</html>
