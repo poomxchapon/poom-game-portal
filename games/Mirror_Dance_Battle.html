@@ -8,6 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
+            --cols: 10;
+            --rows: 10;
+            --tile-size: min(3.5vw, 3.5vh, 36px);
+            --gap: 2px;
             --team-a: #ec4899;
             --team-a-glow: rgba(236,72,153,0.5);
             --team-a-dim: rgba(236,72,153,0.15);
@@ -192,8 +196,10 @@
 
         .team-grid {
             display: grid;
-            gap: 5px;
-            padding: 8px;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap);
+            padding: 6px;
             border-radius: 10px;
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--panel-border);
@@ -204,16 +210,16 @@
 
         /* Tiles */
         .g-tile {
-            width: var(--g-tile-size, 55px);
-            height: var(--g-tile-size, 55px);
+            width: var(--tile-size);
+            height: var(--tile-size);
             background: var(--tile-bg);
-            border-radius: 6px;
-            border: 2px solid transparent;
+            border-radius: 4px;
+            border: 1px solid transparent;
             cursor: pointer;
             transition: all 0.12s;
             display: flex; align-items: center; justify-content: center;
             font-family: 'Orbitron', sans-serif;
-            font-weight: 900; font-size: 0.9rem;
+            font-weight: 900; font-size: 0.6rem;
             color: transparent;
             position: relative;
         }
@@ -367,12 +373,21 @@
             .scanline { display: none; }
         }
 
-        /* Responsive */
-        @media (max-width: 600px) {
+        /* Responsive — match standard Fortal breakpoints */
+        @media (max-width: 900px) {
+            :root { --tile-size: min(3.2vw, 3.2vh, 30px); }
+        }
+        @media (max-width: 700px) {
+            :root { --tile-size: min(2.8vw, 2.8vh, 26px); }
             .arena { gap: 8px; }
             .vs-divider { font-size: 1rem; padding: 0 2px; }
-            .team-grid { padding: 5px; gap: 4px; }
             .team-label { font-size: 0.45rem; letter-spacing: 2px; }
+        }
+        @media (max-width: 500px) {
+            :root { --tile-size: min(7.5vw, 4vh, 30px); }
+            .arena { flex-direction: column; gap: 10px; }
+            .vs-divider { font-size: 0.8rem; }
+            .team-grid { padding: 4px; }
         }
     </style>
 </head>
@@ -468,11 +483,15 @@
 const TOTAL_ROUNDS = 8;
 const PHASE_TIME = 10;
 
+const GRID_COLS = 10;
+const GRID_ROWS = 10;
+const GRID_TOTAL = GRID_COLS * GRID_ROWS;
+
 const ROUND_CFG = [
-    { grid:3, tiles:3 }, { grid:3, tiles:3 },
-    { grid:3, tiles:4 }, { grid:3, tiles:4 },
-    { grid:4, tiles:5 }, { grid:4, tiles:5 },
-    { grid:5, tiles:7 }, { grid:5, tiles:7 },
+    { tiles:3 }, { tiles:3 },
+    { tiles:4 }, { tiles:4 },
+    { tiles:5 }, { tiles:5 },
+    { tiles:7 }, { tiles:7 },
 ];
 
 const G = {
@@ -488,19 +507,16 @@ const G = {
     logs: [],
 };
 
-// ─── Grid Building ───
-function buildGrids(size) {
-    const tileSize = size <= 3 ? 'clamp(48px,12vw,65px)' : size <= 4 ? 'clamp(42px,10vw,58px)' : 'clamp(34px,8vw,50px)';
+// ─── Grid Building (standard 10×10 LED floor) ───
+function buildGrids() {
     ['grid-a','grid-b'].forEach(id => {
         const g = document.getElementById(id);
         g.innerHTML = '';
-        g.style.gridTemplateColumns = `repeat(${size}, auto)`;
         g.classList.remove('grid-active-a','grid-active-b');
-        for (let i = 0; i < size * size; i++) {
+        for (let i = 0; i < GRID_TOTAL; i++) {
             const t = document.createElement('div');
             t.className = 'g-tile locked';
             t.dataset.idx = i;
-            t.style.setProperty('--g-tile-size', tileSize);
             g.appendChild(t);
         }
     });
@@ -514,7 +530,7 @@ function getTiles(gridId) {
 function startRound() {
     const cfg = ROUND_CFG[G.round];
     const isAttack = G.round % 2 === 0;
-    buildGrids(cfg.grid);
+    buildGrids();
     G.pattern = [];
     G.playerInput = [];
     G.defendIdx = 0;
@@ -580,7 +596,7 @@ function submitAttack(cfg) {
     });
 
     if (G.pattern.length === 0) {
-        G.pattern = randomPattern(cfg.grid, cfg.tiles);
+        G.pattern = randomPattern(cfg.tiles);
         const tiles = getTiles('grid-a');
         G.pattern.forEach((idx, i) => {
             tiles[idx].classList.add('sel-a');
@@ -663,7 +679,7 @@ function startDefend(cfg) {
     document.getElementById('hint-bar').textContent = 'AI กำลังสร้าง Pattern...';
     document.getElementById('hint-bar').style.color = 'var(--team-b)';
 
-    G.pattern = randomPattern(cfg.grid, cfg.tiles);
+    G.pattern = randomPattern(cfg.tiles);
     const tilesB = getTiles('grid-b');
     document.getElementById('grid-b').classList.add('grid-active-b');
 
@@ -796,9 +812,8 @@ function showMirror(cb) {
 }
 
 // ─── Helpers ───
-function randomPattern(gridSize, count) {
-    const total = gridSize * gridSize;
-    const indices = Array.from({length: total}, (_, i) => i);
+function randomPattern(count) {
+    const indices = Array.from({length: GRID_TOTAL}, (_, i) => i);
     for (let i = indices.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
