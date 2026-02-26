@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mirror Dance Battle: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --team-a: #ec4899;
+            --team-a-glow: rgba(236,72,153,0.5);
+            --team-a-dim: rgba(236,72,153,0.15);
+            --team-b: #06b6d4;
+            --team-b-glow: rgba(6,182,212,0.5);
+            --team-b-dim: rgba(6,182,212,0.15);
+            --bg: #08060f;
+            --panel: #110d1e;
+            --panel-border: #1e1a35;
+            --tile-bg: #1a1530;
+            --gold: #fbbf24;
+            --gold-glow: rgba(251,191,36,0.4);
+            --correct: #22c55e;
+            --wrong: #ef4444;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; touch-action: none;
+        }
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(236,72,153,0.004) 2px, rgba(236,72,153,0.004) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,3,10,0.97);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100; padding: 20px;
+        }
+        .overlay.hidden { display: none; }
+
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.6rem, 5vw, 2.8rem);
+            letter-spacing: 4px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .title-mirror { color: var(--team-a); text-shadow: 0 0 30px var(--team-a-glow); }
+        .title-dance { color: var(--team-b); text-shadow: 0 0 30px var(--team-b-glow); }
+        .menu-sub {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; letter-spacing: 5px; color: #444;
+        }
+        .menu-divider {
+            width: 120px; height: 2px;
+            background: linear-gradient(90deg, var(--team-a), transparent 30%, transparent 70%, var(--team-b));
+            margin: 14px auto;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.8rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            color: #fff;
+            background: linear-gradient(135deg, var(--team-a), #a855f7, var(--team-b));
+            border: none; padding: 14px 40px;
+            border-radius: 10px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(168,85,247,0.3);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(168,85,247,0.5); }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+        .btn-ghost {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.6rem;
+            letter-spacing: 2px; color: #a855f7;
+            background: rgba(168,85,247,0.08);
+            border: 1px solid rgba(168,85,247,0.25);
+            padding: 10px 24px; border-radius: 8px;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: rgba(168,85,247,0.15); }
+
+        /* Game Layout */
+        #game-screen {
+            display: none;
+            width: 100vw; height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+        }
+
+        /* HUD */
+        .hud-top {
+            display: flex; align-items: center; gap: 12px;
+            justify-content: center; flex-wrap: wrap;
+        }
+        .hud-chip {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 10px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px; font-size: 0.7rem;
+        }
+        .hud-chip .val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.85rem;
+        }
+
+        /* Phase Banner */
+        #phase-banner {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1rem, 3vw, 1.6rem);
+            letter-spacing: 4px;
+            text-align: center;
+            padding: 6px 24px;
+            border-radius: 8px;
+            min-height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+        }
+        .phase-attack {
+            color: var(--team-a);
+            background: var(--team-a-dim);
+            border: 1px solid rgba(236,72,153,0.3);
+            text-shadow: 0 0 20px var(--team-a-glow);
+        }
+        .phase-defend {
+            color: var(--team-b);
+            background: var(--team-b-dim);
+            border: 1px solid rgba(6,182,212,0.3);
+            text-shadow: 0 0 20px var(--team-b-glow);
+        }
+        .phase-mirror {
+            color: var(--gold);
+            background: rgba(251,191,36,0.1);
+            border: 1px solid rgba(251,191,36,0.3);
+            text-shadow: 0 0 25px var(--gold-glow);
+            animation: mirrorPulse 0.4s ease-in-out infinite alternate;
+        }
+        @keyframes mirrorPulse { from{transform:scale(1);} to{transform:scale(1.05);} }
+
+        /* Arena (two grids side by side) */
+        .arena {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .team-side {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 6px;
+        }
+        .team-label {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.55rem;
+            letter-spacing: 3px;
+            padding: 3px 12px;
+            border-radius: 6px;
+        }
+        .label-a {
+            color: var(--team-a);
+            background: var(--team-a-dim);
+            border: 1px solid rgba(236,72,153,0.2);
+        }
+        .label-b {
+            color: var(--team-b);
+            background: var(--team-b-dim);
+            border: 1px solid rgba(6,182,212,0.2);
+        }
+
+        .team-grid {
+            display: grid;
+            gap: 5px;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--panel-border);
+            transition: box-shadow 0.3s;
+        }
+        .team-grid.grid-active-a { box-shadow: 0 0 20px var(--team-a-glow); border-color: rgba(236,72,153,0.3); }
+        .team-grid.grid-active-b { box-shadow: 0 0 20px var(--team-b-glow); border-color: rgba(6,182,212,0.3); }
+
+        /* Tiles */
+        .g-tile {
+            width: var(--g-tile-size, 55px);
+            height: var(--g-tile-size, 55px);
+            background: var(--tile-bg);
+            border-radius: 6px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.9rem;
+            color: transparent;
+            position: relative;
+        }
+        .g-tile:hover:not(.locked) { background: #221a40; }
+        .g-tile:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+        /* Tile states */
+        .g-tile.sel-a {
+            background: var(--team-a) !important;
+            border-color: #f472b6;
+            box-shadow: 0 0 16px var(--team-a-glow);
+            color: #fff;
+        }
+        .g-tile.sel-b {
+            background: var(--team-b) !important;
+            border-color: #22d3ee;
+            box-shadow: 0 0 16px var(--team-b-glow);
+            color: #fff;
+        }
+        .g-tile.pattern-show {
+            background: var(--team-b) !important;
+            border-color: #22d3ee;
+            box-shadow: 0 0 20px var(--team-b-glow);
+            animation: tileAppear 0.3s ease-out;
+        }
+        .g-tile.pattern-waiting {
+            background: rgba(6,182,212,0.4) !important;
+            border-color: var(--team-b);
+            box-shadow: 0 0 14px var(--team-b-glow);
+            animation: tilePulse 0.8s ease-in-out infinite;
+        }
+        @keyframes tilePulse { 0%,100%{box-shadow:0 0 10px var(--team-b-glow);} 50%{box-shadow:0 0 25px var(--team-b-glow);} }
+        .g-tile.tile-correct {
+            background: var(--correct) !important;
+            border-color: #4ade80;
+            box-shadow: 0 0 16px rgba(34,197,94,0.5);
+            color: #fff;
+        }
+        .g-tile.tile-wrong {
+            background: var(--wrong) !important;
+            border-color: #f87171;
+            box-shadow: 0 0 16px rgba(239,68,68,0.5);
+            color: #fff;
+        }
+        .g-tile.tile-missed {
+            background: rgba(239,68,68,0.3) !important;
+            border-color: rgba(239,68,68,0.5);
+        }
+        .g-tile.ai-click {
+            animation: aiPress 0.3s ease-out;
+        }
+        @keyframes tileAppear { from{transform:scale(0.5);opacity:0;} to{transform:scale(1);opacity:1;} }
+        @keyframes aiPress { 0%{transform:scale(1);} 30%{transform:scale(0.85);} 100%{transform:scale(1);} }
+        .g-tile.locked { cursor: default; }
+        .g-tile.fading {
+            animation: tileFade 0.8s ease-in forwards;
+        }
+        @keyframes tileFade { from{opacity:1;} to{opacity:0.2; background:rgba(239,68,68,0.2);} }
+
+        /* VS divider */
+        .vs-divider {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 1.4rem;
+            color: #a855f7;
+            text-shadow: 0 0 20px rgba(168,85,247,0.5);
+            padding: 0 4px;
+        }
+
+        /* Timer */
+        .timer-track {
+            width: 100%; max-width: 600px;
+            height: 6px;
+            background: #1a1530;
+            border-radius: 3px; overflow: hidden;
+        }
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--team-a), var(--team-b));
+            border-radius: 3px;
+            transition: width 0.15s linear;
+        }
+        .timer-fill.urgent { background: linear-gradient(90deg, var(--wrong), #ff6600); }
+
+        /* Hint */
+        .hint-bar {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem; letter-spacing: 2px;
+            color: #555; text-align: center;
+        }
+
+        /* Result popup */
+        #result-popup {
+            position: fixed; inset: 0;
+            display: none; align-items: center; justify-content: center;
+            z-index: 90; pointer-events: none;
+        }
+        #result-popup.show { display: flex; }
+        .result-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            letter-spacing: 3px;
+            padding: 12px 30px;
+            border-radius: 12px;
+            animation: resultPop 1.2s ease-out forwards;
+        }
+        .result-win { color: var(--correct); background: rgba(34,197,94,0.15); text-shadow: 0 0 30px rgba(34,197,94,0.5); }
+        .result-lose { color: var(--wrong); background: rgba(239,68,68,0.15); text-shadow: 0 0 30px rgba(239,68,68,0.4); }
+        .result-mirror { color: var(--gold); background: rgba(251,191,36,0.1); text-shadow: 0 0 40px var(--gold-glow); }
+        @keyframes resultPop {
+            0% { transform: scale(0); opacity: 0; }
+            25% { transform: scale(1.15); opacity: 1; }
+            50% { transform: scale(1); }
+            100% { transform: scale(1) translateY(-10px); opacity: 0; }
+        }
+
+        /* Countdown */
+        .countdown-num {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6rem; font-weight: 900;
+            color: #a855f7;
+            text-shadow: 0 0 60px rgba(168,85,247,0.5);
+            animation: countIn 0.5s ease-out;
+        }
+        @keyframes countIn { 0%{transform:scale(1.6);opacity:0;} 50%{opacity:1;} 100%{transform:scale(1);} }
+
+        /* Game Over stats */
+        .stat-box {
+            text-align: center; padding: 10px 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+        }
+        .stat-val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; }
+        .stat-label { font-size: 0.55rem; color: #555; margin-top: 2px; letter-spacing: 1px; }
+
+        /* Progress indicator */
+        #progress {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem; font-weight: 700;
+            color: #888;
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .scanline { display: none; }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .arena { gap: 8px; }
+            .vs-divider { font-size: 1rem; padding: 0 2px; }
+            .team-grid { padding: 5px; gap: 4px; }
+            .team-label { font-size: 0.45rem; letter-spacing: 2px; }
+        }
+    </style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!-- MAIN MENU -->
+<div id="menu" class="overlay">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub">CSM-C2-004 &middot; FORTAL INTERACTIVE</div>
+        <div class="menu-title" style="margin:8px 0;">
+            <span class="title-mirror">MIRROR</span><br>
+            <span class="title-dance">DANCE BATTLE</span>
+        </div>
+        <div class="menu-divider"></div>
+        <div style="font-size:0.85rem;color:#a78bfa;margin-bottom:4px;">Action / PvP</div>
+        <div style="font-size:0.75rem;color:#777;max-width:340px;margin:0 auto 20px;line-height:1.7;">
+            สลับกันรุก-รับ!<br>
+            <span style="color:var(--team-a);">ฝ่ายรุก</span> สร้าง Pattern กดช่อง &middot;
+            <span style="color:var(--team-b);">ฝ่ายรับ</span> กดตามให้ทัน<br>
+            ยิ่งรอบหลัง ยิ่งยาก!
+        </div>
+        <button class="btn-primary" onclick="beginGame()">BATTLE!</button>
+        <div style="font-size:0.45rem;color:#333;margin-top:12px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+            CLICK TILES &middot; 8 ROUNDS &middot; ATTACK & DEFEND
+        </div>
+    </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown" class="overlay hidden">
+    <div id="count-num" class="countdown-num"></div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="overlay hidden">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub" style="margin-bottom:6px;">BATTLE OVER</div>
+        <div id="winner-text" class="menu-title" style="font-size:1.8rem;"></div>
+        <div class="menu-divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="stat-box" style="border-color:rgba(236,72,153,0.3);">
+                <div id="go-score-a" class="stat-val" style="color:var(--team-a);">0</div>
+                <div class="stat-label">TEAM A (YOU)</div>
+            </div>
+            <div class="stat-box" style="border-color:rgba(6,182,212,0.3);">
+                <div id="go-score-b" class="stat-val" style="color:var(--team-b);">0</div>
+                <div class="stat-label">TEAM B (AI)</div>
+            </div>
+        </div>
+        <div id="round-log" style="text-align:left;max-height:140px;overflow-y:auto;margin-bottom:14px;font-size:0.7rem;"></div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn-primary" onclick="beginGame()" style="font-size:0.7rem;padding:12px 24px;">REMATCH</button>
+            <button class="btn-ghost" onclick="goMenu()">MENU</button>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT POPUP -->
+<div id="result-popup"><div id="result-text" class="result-text"></div></div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+    <div class="hud-top">
+        <div class="hud-chip"><span style="color:#888;">Round</span> <span id="h-round" class="val" style="color:#a855f7;">1</span><span style="color:#444;font-size:0.65rem;">/8</span></div>
+        <div class="hud-chip"><span style="color:var(--team-a);">You</span> <span id="h-score-a" class="val" style="color:var(--team-a);">0</span></div>
+        <div class="hud-chip"><span style="color:var(--team-b);">AI</span> <span id="h-score-b" class="val" style="color:var(--team-b);">0</span></div>
+    </div>
+
+    <div id="phase-banner">-</div>
+
+    <div class="arena" id="arena">
+        <div class="team-side">
+            <div class="team-label label-a">TEAM A &middot; YOU</div>
+            <div class="team-grid" id="grid-a"></div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="team-side">
+            <div class="team-label label-b">TEAM B &middot; AI</div>
+            <div class="team-grid" id="grid-b"></div>
+        </div>
+    </div>
+
+    <div id="progress"></div>
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+    <div class="hint-bar" id="hint-bar">CLICK TILES TO CREATE YOUR ATTACK PATTERN</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  MIRROR DANCE BATTLE — Engine v1
+// ═══════════════════════════════════════════
+const TOTAL_ROUNDS = 8;
+const PHASE_TIME = 10;
+
+const ROUND_CFG = [
+    { grid:3, tiles:3 }, { grid:3, tiles:3 },
+    { grid:3, tiles:4 }, { grid:3, tiles:4 },
+    { grid:4, tiles:5 }, { grid:4, tiles:5 },
+    { grid:5, tiles:7 }, { grid:5, tiles:7 },
+];
+
+const G = {
+    round: 0,
+    scoreA: 0, scoreB: 0,
+    phase: 'idle',
+    pattern: [],
+    playerInput: [],
+    timer: PHASE_TIME, tiv: null,
+    active: false,
+    defendIdx: 0,
+    defendTimers: [],
+    logs: [],
+};
+
+// ─── Grid Building ───
+function buildGrids(size) {
+    const tileSize = size <= 3 ? 'clamp(48px,12vw,65px)' : size <= 4 ? 'clamp(42px,10vw,58px)' : 'clamp(34px,8vw,50px)';
+    ['grid-a','grid-b'].forEach(id => {
+        const g = document.getElementById(id);
+        g.innerHTML = '';
+        g.style.gridTemplateColumns = `repeat(${size}, auto)`;
+        g.classList.remove('grid-active-a','grid-active-b');
+        for (let i = 0; i < size * size; i++) {
+            const t = document.createElement('div');
+            t.className = 'g-tile locked';
+            t.dataset.idx = i;
+            t.style.setProperty('--g-tile-size', tileSize);
+            g.appendChild(t);
+        }
+    });
+}
+
+function getTiles(gridId) {
+    return Array.from(document.querySelectorAll(`#${gridId} .g-tile`));
+}
+
+// ─── Round Flow ───
+function startRound() {
+    const cfg = ROUND_CFG[G.round];
+    const isAttack = G.round % 2 === 0;
+    buildGrids(cfg.grid);
+    G.pattern = [];
+    G.playerInput = [];
+    G.defendIdx = 0;
+    G.defendTimers.forEach(t => clearTimeout(t));
+    G.defendTimers = [];
+
+    document.getElementById('h-round').textContent = G.round + 1;
+    document.getElementById('progress').textContent = '';
+    hud();
+
+    if (isAttack) {
+        startAttack(cfg);
+    } else {
+        startDefend(cfg);
+    }
+}
+
+// ─── ATTACK PHASE ───
+function startAttack(cfg) {
+    G.phase = 'attack';
+    const banner = document.getElementById('phase-banner');
+    banner.textContent = 'YOUR ATTACK!';
+    banner.className = 'phase-attack';
+    document.getElementById('hint-bar').textContent = `กดช่อง ${cfg.tiles} ช่องเพื่อสร้าง Pattern โจมตี`;
+    document.getElementById('hint-bar').style.color = 'var(--team-a)';
+
+    const gridA = document.getElementById('grid-a');
+    gridA.classList.add('grid-active-a');
+    const tiles = getTiles('grid-a');
+    tiles.forEach(t => {
+        t.classList.remove('locked');
+        t.addEventListener('click', onAttackClick);
+    });
+    updateProgress(0, cfg.tiles);
+    startTimer(PHASE_TIME, () => submitAttack(cfg));
+}
+
+function onAttackClick(e) {
+    if (G.phase !== 'attack') return;
+    const t = e.currentTarget;
+    const idx = parseInt(t.dataset.idx);
+    if (G.pattern.includes(idx)) return;
+
+    const cfg = ROUND_CFG[G.round];
+    G.pattern.push(idx);
+    t.classList.add('sel-a');
+    t.textContent = G.pattern.length;
+    t.style.color = '#fff';
+    updateProgress(G.pattern.length, cfg.tiles);
+
+    if (G.pattern.length >= cfg.tiles) {
+        clearInterval(G.tiv);
+        setTimeout(() => submitAttack(cfg), 300);
+    }
+}
+
+function submitAttack(cfg) {
+    G.phase = 'mirror';
+    clearInterval(G.tiv);
+    getTiles('grid-a').forEach(t => {
+        t.removeEventListener('click', onAttackClick);
+        t.classList.add('locked');
+    });
+
+    if (G.pattern.length === 0) {
+        G.pattern = randomPattern(cfg.grid, cfg.tiles);
+        const tiles = getTiles('grid-a');
+        G.pattern.forEach((idx, i) => {
+            tiles[idx].classList.add('sel-a');
+            tiles[idx].textContent = i + 1;
+            tiles[idx].style.color = '#fff';
+        });
+    }
+
+    showMirror(() => mirrorToB(cfg));
+}
+
+function mirrorToB(cfg) {
+    const tilesB = getTiles('grid-b');
+    document.getElementById('grid-b').classList.add('grid-active-b');
+
+    G.pattern.forEach((idx, i) => {
+        setTimeout(() => {
+            tilesB[idx].classList.add('sel-b');
+            tilesB[idx].textContent = i + 1;
+            tilesB[idx].style.color = '#fff';
+        }, i * 200);
+    });
+
+    setTimeout(() => aiDefend(cfg), G.pattern.length * 200 + 500);
+}
+
+function aiDefend(cfg) {
+    const banner = document.getElementById('phase-banner');
+    banner.textContent = 'AI DEFENDING...';
+    banner.className = 'phase-defend';
+    document.getElementById('hint-bar').textContent = 'AI กำลังกดตาม Pattern ของคุณ...';
+    document.getElementById('hint-bar').style.color = 'var(--team-b)';
+
+    const tilesB = getTiles('grid-b');
+    const difficulty = Math.max(0.4, 0.85 - G.round * 0.06);
+    let allCorrect = true;
+
+    G.pattern.forEach((idx, i) => {
+        setTimeout(() => {
+            tilesB[idx].classList.add('ai-click');
+            const success = Math.random() < difficulty;
+            if (success) {
+                tilesB[idx].classList.remove('sel-b');
+                tilesB[idx].classList.add('tile-correct');
+            } else {
+                allCorrect = false;
+                tilesB[idx].classList.remove('sel-b');
+                tilesB[idx].classList.add('tile-wrong');
+            }
+            tilesB[idx].textContent = success ? '✓' : '✗';
+            tilesB[idx].style.color = '#fff';
+
+            if (i === G.pattern.length - 1) {
+                setTimeout(() => resolveAttack(allCorrect), 500);
+            }
+        }, i * 400 + 200);
+    });
+}
+
+function resolveAttack(aiPassed) {
+    if (aiPassed) {
+        G.scoreB += 100;
+        showResult('AI CLEARED!', 'lose');
+        G.logs.push({ round: G.round + 1, type: 'ATTACK', result: 'AI กดได้ทั้งหมด', scoreA: 0, scoreB: 100 });
+    } else {
+        G.scoreA += 100;
+        showResult('OPPONENT FAILED!', 'win');
+        G.logs.push({ round: G.round + 1, type: 'ATTACK', result: 'AI กดพลาด!', scoreA: 100, scoreB: 0 });
+    }
+    hud();
+    setTimeout(nextRound, 1500);
+}
+
+// ─── DEFEND PHASE ───
+function startDefend(cfg) {
+    G.phase = 'ai-attack';
+    const banner = document.getElementById('phase-banner');
+    banner.textContent = 'AI ATTACKS!';
+    banner.className = 'phase-defend';
+    document.getElementById('hint-bar').textContent = 'AI กำลังสร้าง Pattern...';
+    document.getElementById('hint-bar').style.color = 'var(--team-b)';
+
+    G.pattern = randomPattern(cfg.grid, cfg.tiles);
+    const tilesB = getTiles('grid-b');
+    document.getElementById('grid-b').classList.add('grid-active-b');
+
+    G.pattern.forEach((idx, i) => {
+        setTimeout(() => {
+            tilesB[idx].classList.add('sel-b');
+            tilesB[idx].textContent = i + 1;
+            tilesB[idx].style.color = '#fff';
+        }, i * 250);
+    });
+
+    setTimeout(() => {
+        showMirror(() => playerDefend(cfg));
+    }, G.pattern.length * 250 + 600);
+}
+
+function playerDefend(cfg) {
+    G.phase = 'defend';
+    G.playerInput = [];
+    G.defendIdx = 0;
+
+    const banner = document.getElementById('phase-banner');
+    banner.textContent = 'DEFEND!';
+    banner.className = 'phase-defend';
+    document.getElementById('hint-bar').textContent = 'กดช่องที่สว่างให้ทัน ก่อนมันจะดับ!';
+    document.getElementById('hint-bar').style.color = 'var(--team-b)';
+
+    const gridA = document.getElementById('grid-a');
+    gridA.classList.add('grid-active-b');
+    const tilesA = getTiles('grid-a');
+
+    tilesA.forEach(t => {
+        t.classList.remove('locked');
+        t.addEventListener('click', onDefendClick);
+    });
+
+    updateProgress(0, cfg.tiles);
+    revealDefendTiles(cfg, 0);
+    startTimer(cfg.tiles * 1.5 + 4, () => defendTimeUp(cfg));
+}
+
+function revealDefendTiles(cfg, i) {
+    if (i >= G.pattern.length || G.phase !== 'defend') return;
+    const tilesA = getTiles('grid-a');
+    const idx = G.pattern[i];
+    const tile = tilesA[idx];
+
+    tile.classList.add('pattern-waiting');
+    tile.dataset.patternOrder = i;
+
+    const fadeTime = 3000;
+    const fadeTimer = setTimeout(() => {
+        if (G.phase !== 'defend') return;
+        if (!tile.classList.contains('tile-correct')) {
+            tile.classList.remove('pattern-waiting');
+            tile.classList.add('tile-missed');
+        }
+    }, fadeTime);
+    G.defendTimers.push(fadeTimer);
+
+    const nextTimer = setTimeout(() => revealDefendTiles(cfg, i + 1), 800);
+    G.defendTimers.push(nextTimer);
+}
+
+function onDefendClick(e) {
+    if (G.phase !== 'defend') return;
+    const t = e.currentTarget;
+    const idx = parseInt(t.dataset.idx);
+
+    if (t.classList.contains('tile-correct') || t.classList.contains('tile-wrong')) return;
+
+    if (G.pattern.includes(idx) && t.classList.contains('pattern-waiting')) {
+        t.classList.remove('pattern-waiting');
+        t.classList.add('tile-correct');
+        t.textContent = '✓';
+        t.style.color = '#fff';
+        G.playerInput.push(idx);
+        const cfg = ROUND_CFG[G.round];
+        updateProgress(G.playerInput.length, cfg.tiles);
+
+        if (G.playerInput.length >= G.pattern.length) {
+            clearInterval(G.tiv);
+            G.phase = 'resolve';
+            setTimeout(() => resolveDefend(true), 400);
+        }
+    } else if (!G.pattern.includes(idx)) {
+        t.classList.add('tile-wrong');
+        t.textContent = '✗';
+        t.style.color = '#fff';
+    }
+}
+
+function defendTimeUp(cfg) {
+    if (G.phase !== 'defend') return;
+    G.phase = 'resolve';
+    G.defendTimers.forEach(t => clearTimeout(t));
+    const allCaught = G.playerInput.length >= G.pattern.length;
+    resolveDefend(allCaught);
+}
+
+function resolveDefend(success) {
+    G.phase = 'resolve';
+    G.defendTimers.forEach(t => clearTimeout(t));
+    getTiles('grid-a').forEach(t => {
+        t.removeEventListener('click', onDefendClick);
+        t.classList.add('locked');
+    });
+
+    if (success) {
+        G.scoreA += 100;
+        showResult('+100 CLEARED!', 'win');
+        G.logs.push({ round: G.round + 1, type: 'DEFEND', result: 'กดทันทั้งหมด!', scoreA: 100, scoreB: 0 });
+    } else {
+        G.scoreB += 100;
+        G.scoreA = Math.max(0, G.scoreA - 50);
+        showResult('FAILED! -50', 'lose');
+        G.logs.push({ round: G.round + 1, type: 'DEFEND', result: 'กดไม่ทัน...', scoreA: -50, scoreB: 100 });
+    }
+    hud();
+    setTimeout(nextRound, 1500);
+}
+
+// ─── Mirror Animation ───
+function showMirror(cb) {
+    const banner = document.getElementById('phase-banner');
+    banner.textContent = 'MIRROR!';
+    banner.className = 'phase-mirror';
+    showResult('MIRROR!', 'mirror');
+    setTimeout(cb, 1200);
+}
+
+// ─── Helpers ───
+function randomPattern(gridSize, count) {
+    const total = gridSize * gridSize;
+    const indices = Array.from({length: total}, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    return indices.slice(0, count);
+}
+
+function updateProgress(current, total) {
+    document.getElementById('progress').textContent = `${current} / ${total}`;
+}
+
+function showResult(text, type) {
+    const el = document.getElementById('result-popup');
+    const txt = document.getElementById('result-text');
+    txt.textContent = text;
+    txt.className = 'result-text result-' + type;
+    el.classList.add('show');
+    txt.style.animation = 'none'; void txt.offsetWidth; txt.style.animation = '';
+    setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+function startTimer(seconds, onEnd) {
+    clearInterval(G.tiv);
+    G.timer = seconds;
+    updTimer(seconds);
+    G.tiv = setInterval(() => {
+        G.timer -= 0.1;
+        if (G.timer <= 0) { G.timer = 0; clearInterval(G.tiv); onEnd(); }
+        updTimer(seconds);
+    }, 100);
+}
+
+function updTimer(max) {
+    const pct = (G.timer / max) * 100;
+    const f = document.getElementById('timer-fill');
+    f.style.width = pct + '%';
+    f.classList.toggle('urgent', G.timer < 3);
+}
+
+function hud() {
+    document.getElementById('h-score-a').textContent = G.scoreA;
+    document.getElementById('h-score-b').textContent = G.scoreB;
+}
+
+function nextRound() {
+    G.round++;
+    if (G.round >= TOTAL_ROUNDS) { endGame(); return; }
+    startRound();
+}
+
+// ─── Game Start / End ───
+function beginGame() {
+    G.round = 0; G.scoreA = 0; G.scoreB = 0; G.logs = [];
+    G.active = false;
+    hide('menu'); hide('gameover');
+    show('countdown');
+    document.getElementById('game-screen').style.display = 'flex';
+
+    let n = 3;
+    const el = document.getElementById('count-num');
+    el.textContent = n;
+    const iv = setInterval(() => {
+        n--;
+        if (n > 0) { el.textContent = n; el.className = 'countdown-num'; void el.offsetWidth; el.className = 'countdown-num'; }
+        else { clearInterval(iv); hide('countdown'); G.active = true; startRound(); }
+    }, 700);
+}
+
+function endGame() {
+    G.active = false;
+    clearInterval(G.tiv);
+    G.defendTimers.forEach(t => clearTimeout(t));
+
+    document.getElementById('go-score-a').textContent = G.scoreA;
+    document.getElementById('go-score-b').textContent = G.scoreB;
+
+    const winner = document.getElementById('winner-text');
+    if (G.scoreA > G.scoreB) {
+        winner.innerHTML = '<span class="title-mirror">YOU WIN!</span>';
+    } else if (G.scoreB > G.scoreA) {
+        winner.innerHTML = '<span class="title-dance">AI WINS!</span>';
+    } else {
+        winner.innerHTML = '<span style="color:#a855f7;">DRAW!</span>';
+    }
+
+    document.getElementById('round-log').innerHTML = G.logs.map(l => {
+        const icon = l.type === 'ATTACK' ? '<span style="color:var(--team-a);">⚔</span>' : '<span style="color:var(--team-b);">🛡</span>';
+        const col = l.scoreA > 0 ? 'var(--correct)' : l.scoreA < 0 ? 'var(--wrong)' : '#888';
+        return `<div style="display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px solid #1a1530;">
+            <span style="font-family:Orbitron;font-size:0.55rem;color:#555;width:20px;">R${l.round}</span>
+            ${icon}
+            <span style="flex:1;color:#aaa;">${l.result}</span>
+            <span style="font-family:Orbitron;font-size:0.6rem;font-weight:700;color:${col};">${l.scoreA >= 0 ? '+' : ''}${l.scoreA}</span>
+        </div>`;
+    }).join('');
+
+    show('gameover');
+}
+
+function goMenu() {
+    hide('gameover');
+    document.getElementById('game-screen').style.display = 'none';
+    show('menu');
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>
