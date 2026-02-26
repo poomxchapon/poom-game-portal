@@ -359,6 +359,62 @@
         .stat-val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; }
         .stat-label { font-size: 0.55rem; color: #555; margin-top: 2px; letter-spacing: 1px; }
 
+        /* Player */
+        #player {
+            position: absolute;
+            width: var(--tile-size); height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fde68a, #f59e0b 60%, #d97706);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 0 14px rgba(245,158,11,0.6), 0 0 4px #fff;
+            z-index: 30;
+            transition: left 0.08s ease-out, top 0.08s ease-out;
+            pointer-events: none;
+        }
+        #player::after {
+            content: '';
+            width: 35%; height: 35%;
+            background: rgba(255,255,255,0.55);
+            border-radius: 50%;
+            position: absolute; top: 18%; left: 20%;
+            filter: blur(1px);
+        }
+
+        /* Single mode zones */
+        .zone-a { background: rgba(239,68,68,0.06) !important; }
+        .zone-b { background: rgba(59,130,246,0.06) !important; }
+        .zone-div {
+            background: linear-gradient(90deg, rgba(245,158,11,0.15), rgba(245,158,11,0.35), rgba(245,158,11,0.15)) !important;
+            border-top: 1px dashed rgba(245,158,11,0.4) !important;
+            border-bottom: 1px dashed rgba(245,158,11,0.4) !important;
+            pointer-events: none;
+        }
+        .zone-div::after {
+            content: '⚡';
+            font-size: 0.5rem;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* AI ghost in single mode */
+        #ai-ghost {
+            position: absolute;
+            width: var(--tile-size); height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #93c5fd, #3b82f6 60%, #1d4ed8);
+            border: 2px solid rgba(255,255,255,0.6);
+            box-shadow: 0 0 14px rgba(59,130,246,0.5), 0 0 4px #fff;
+            z-index: 29;
+            transition: left 0.15s ease-out, top 0.15s ease-out;
+            pointer-events: none;
+            display: none;
+            opacity: 0.7;
+        }
+
+        /* Single mode: bigger tiles */
+        body.single-mode { --tile-size: min(5vw, 4.5vh, 42px); }
+
         /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
@@ -405,9 +461,12 @@
             ระเบิดมี<span style="color:var(--warn);">เวลาลับ</span><br>
             ทีมที่โดนน้อยกว่าชนะ!
         </div>
-        <button class="btn-primary" onclick="beginGame()">START!</button>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="btn-primary" onclick="beginGame('dual')">DUAL LANE</button>
+            <button class="btn-primary" onclick="beginGame('single')" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6,#6d28d9);box-shadow:0 0 25px rgba(139,92,246,0.3);">SINGLE LANE</button>
+        </div>
         <div style="font-size:0.45rem;color:#333;margin-top:12px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
-            STOMP BOMBS &middot; 90 SECONDS &middot; 2 LANES
+            WASD / ARROWS &middot; 90 SECONDS
         </div>
     </div>
 </div>
@@ -444,7 +503,7 @@
             </div>
         </div>
         <div style="display:flex;gap:10px;justify-content:center;">
-            <button class="btn-primary" onclick="beginGame()" style="font-size:0.7rem;padding:12px 24px;">REMATCH</button>
+            <button class="btn-primary" onclick="beginGame(G.mode)" style="font-size:0.7rem;padding:12px 24px;">REMATCH</button>
             <button class="btn-ghost" onclick="goMenu()">MENU</button>
         </div>
     </div>
@@ -466,7 +525,10 @@
     <div class="arena" id="arena">
         <div class="team-side">
             <div class="team-label label-a">TEAM A &middot; YOU</div>
-            <div class="team-grid grid-active-a" id="grid-a" style="position:relative;"></div>
+            <div class="team-grid grid-active-a" id="grid-a" style="position:relative;">
+                <div id="player"></div>
+                <div id="ai-ghost"></div>
+            </div>
         </div>
         <div class="vs-divider">
             <span class="vs-arrow">&larr;</span>
@@ -480,7 +542,7 @@
     </div>
 
     <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
-    <div class="hint-bar" id="hint-bar">STOMP THE BOMB TO SEND IT TO THE OTHER SIDE!</div>
+    <div class="hint-bar" id="hint-bar">WASD / ARROWS TO MOVE &middot; WALK ON BOMBS TO STOMP!</div>
 </div>
 
 <script>
@@ -491,30 +553,130 @@ const COLS = 6, ROWS = 15, TOTAL = COLS * ROWS;
 const GAME_TIME = 90;
 
 const G = {
+    mode: 'dual',   // 'dual' or 'single'
     time: GAME_TIME,
     hitsA: 0, hitsB: 0,
     sentA: 0, sentB: 0,
-    bombs: [],      // { id, lane, idx, fuse, elapsed, el }
+    bombs: [],      // { id, lane, idx, fuse, elapsed, transit }
     bombId: 0,
     gameIv: null,
     bombIv: null,
     active: false,
     nextSpawn: 0,
     spawnIv: null,
+    pr: 7, pc: 2, // player position (row, col) on grid-a
+    aiR: 3, aiC: 3, // AI ghost position (single mode)
 };
+
+// ─── Mode Helpers ───
+function gridFor(lane) {
+    if (G.mode === 'single') return 'grid-a';
+    return lane === 'a' ? 'grid-a' : 'grid-b';
+}
+
+function zoneIndices(lane) {
+    if (G.mode === 'dual') {
+        const arr = [];
+        for (let i = 0; i < TOTAL; i++) arr.push(i);
+        return arr;
+    }
+    // Single: lane a = player zone (rows 8-14), lane b = AI zone (rows 0-6)
+    const minR = lane === 'a' ? 8 : 0;
+    const maxR = lane === 'a' ? 14 : 6;
+    const arr = [];
+    for (let r = minR; r <= maxR; r++)
+        for (let c = 0; c < COLS; c++)
+            arr.push(r * COLS + c);
+    return arr;
+}
+
+function playerRowBounds() {
+    return G.mode === 'single' ? { min: 8, max: 14 } : { min: 0, max: ROWS - 1 };
+}
 
 // ─── Grid Building ───
 function buildGrids() {
-    ['grid-a','grid-b'].forEach(id => {
+    const gridsToUse = G.mode === 'single' ? ['grid-a'] : ['grid-a', 'grid-b'];
+
+    gridsToUse.forEach(id => {
         const g = document.getElementById(id);
+        const playerEl = id === 'grid-a' ? document.getElementById('player') : null;
+        const aiEl = id === 'grid-a' ? document.getElementById('ai-ghost') : null;
         g.innerHTML = '';
         for (let i = 0; i < TOTAL; i++) {
             const t = document.createElement('div');
             t.className = 'g-tile';
             t.dataset.idx = i;
+
+            // Single mode: zone coloring
+            if (G.mode === 'single') {
+                const row = Math.floor(i / COLS);
+                if (row <= 6) t.classList.add('zone-b');
+                else if (row === 7) { t.classList.add('zone-div'); t.style.position = 'relative'; }
+                else t.classList.add('zone-a');
+            }
+
+            // Click-to-move on player's grid
+            if (id === 'grid-a') {
+                t.addEventListener('click', () => {
+                    if (!G.active) return;
+                    const clickR = Math.floor(i / COLS);
+                    const bounds = playerRowBounds();
+                    if (clickR < bounds.min || clickR > bounds.max) return;
+                    G.pr = clickR;
+                    G.pc = i % COLS;
+                    movePlayer();
+                    checkStomp();
+                });
+            }
             g.appendChild(t);
         }
+        if (playerEl) g.appendChild(playerEl);
+        if (aiEl) g.appendChild(aiEl);
     });
+
+    // Single mode: clear grid-b
+    if (G.mode === 'single') {
+        document.getElementById('grid-b').innerHTML = '';
+    }
+}
+
+// ─── Player Movement ───
+function movePlayer() {
+    const bounds = playerRowBounds();
+    G.pr = Math.max(bounds.min, Math.min(bounds.max, G.pr));
+    G.pc = Math.max(0, Math.min(COLS - 1, G.pc));
+    positionElement('player', 'grid-a', G.pr, G.pc);
+}
+
+function moveAIGhost() {
+    if (G.mode !== 'single') return;
+    G.aiR = Math.max(0, Math.min(6, G.aiR));
+    G.aiC = Math.max(0, Math.min(COLS - 1, G.aiC));
+    const ghost = document.getElementById('ai-ghost');
+    ghost.style.display = 'block';
+    positionElement('ai-ghost', 'grid-a', G.aiR, G.aiC);
+}
+
+function positionElement(elId, gridId, row, col) {
+    const el = document.getElementById(elId);
+    const grid = document.getElementById(gridId);
+    const tiles = getTiles(gridId);
+    const tile = tiles[row * COLS + col];
+    if (!tile || !grid) return;
+    const gRect = grid.getBoundingClientRect();
+    const tRect = tile.getBoundingClientRect();
+    el.style.width = tRect.width + 'px';
+    el.style.height = tRect.height + 'px';
+    el.style.left = (tRect.left - gRect.left) + 'px';
+    el.style.top = (tRect.top - gRect.top) + 'px';
+}
+
+function checkStomp() {
+    if (!G.active) return;
+    const playerIdx = G.pr * COLS + G.pc;
+    const bomb = G.bombs.find(b => b.lane === 'a' && b.idx === playerIdx && !b.transit);
+    if (bomb) playerStompBomb(bomb);
 }
 
 function getTiles(gridId) {
@@ -524,39 +686,30 @@ function getTiles(gridId) {
 // ─── Bomb Management ───
 function spawnBomb(lane) {
     if (!G.active) return;
-    const gridId = lane === 'a' ? 'grid-a' : 'grid-b';
+    const gridId = gridFor(lane);
     const tiles = getTiles(gridId);
+    const validZone = zoneIndices(lane);
 
-    // Find empty tile
-    const occupied = G.bombs.filter(b => b.lane === lane).map(b => b.idx);
-    const available = [];
-    for (let i = 0; i < TOTAL; i++) {
-        if (!occupied.includes(i)) available.push(i);
-    }
+    // Find empty tile in zone
+    const occupied = G.bombs.filter(b => gridFor(b.lane) === gridId).map(b => b.idx);
+    const available = validZone.filter(i => !occupied.includes(i));
     if (available.length === 0) return;
 
     const idx = available[Math.floor(Math.random() * available.length)];
-    const fuse = 5 + Math.random() * 10; // 5-15 seconds
-    const bomb = {
-        id: G.bombId++,
-        lane,
-        idx,
-        fuse,
-        elapsed: 0,
-    };
+    const fuse = 5 + Math.random() * 10;
+    const bomb = { id: G.bombId++, lane, idx, fuse, elapsed: 0 };
 
     const tile = tiles[idx];
     tile.classList.add('bomb');
     tile.textContent = '💣';
     tile.style.color = '#fff';
 
-    // Click handler for player lane (a)
-    if (lane === 'a') {
-        tile._bombHandler = () => playerStompBomb(bomb);
-        tile.addEventListener('click', tile._bombHandler);
-    }
-
     G.bombs.push(bomb);
+
+    // Auto-stomp if player is on this tile
+    if (lane === 'a' && idx === G.pr * COLS + G.pc) {
+        setTimeout(() => checkStomp(), 50);
+    }
 }
 
 function playerStompBomb(bomb) {
@@ -599,15 +752,13 @@ function aiStompBomb(bomb) {
 }
 
 function placeBombVisual(bomb) {
-    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const gridId = gridFor(bomb.lane);
     const tiles = getTiles(gridId);
+    const validZone = zoneIndices(bomb.lane);
 
-    // Find empty spot
-    const occupied = G.bombs.filter(b => b.lane === bomb.lane && b.id !== bomb.id).map(b => b.idx);
-    const available = [];
-    for (let i = 0; i < TOTAL; i++) {
-        if (!occupied.includes(i)) available.push(i);
-    }
+    // Find empty spot in zone
+    const occupied = G.bombs.filter(b => gridFor(b.lane) === gridId && b.id !== bomb.id).map(b => b.idx);
+    const available = validZone.filter(i => !occupied.includes(i));
     if (available.length === 0) { explodeBomb(bomb); return; }
 
     bomb.idx = available[Math.floor(Math.random() * available.length)];
@@ -616,21 +767,17 @@ function placeBombVisual(bomb) {
     tile.textContent = '💣';
     tile.style.color = '#fff';
 
-    if (bomb.lane === 'a') {
-        tile._bombHandler = () => playerStompBomb(bomb);
-        tile.addEventListener('click', tile._bombHandler);
+    // Auto-stomp if player is on this tile
+    if (bomb.lane === 'a' && bomb.idx === G.pr * COLS + G.pc) {
+        setTimeout(() => checkStomp(), 50);
     }
 }
 
 function removeBombVisual(bomb) {
-    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const gridId = gridFor(bomb.lane);
     const tiles = getTiles(gridId);
     const tile = tiles[bomb.idx];
     if (tile) {
-        if (tile._bombHandler) {
-            tile.removeEventListener('click', tile._bombHandler);
-            tile._bombHandler = null;
-        }
         tile.classList.remove('bomb', 'urgent');
         tile.classList.add('sent');
         tile.textContent = '';
@@ -640,16 +787,12 @@ function removeBombVisual(bomb) {
 }
 
 function explodeBomb(bomb) {
-    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const gridId = gridFor(bomb.lane);
     const tiles = getTiles(gridId);
     const tile = tiles[bomb.idx];
 
     // Visual explosion
     if (tile) {
-        if (tile._bombHandler) {
-            tile.removeEventListener('click', tile._bombHandler);
-            tile._bombHandler = null;
-        }
         tile.classList.remove('bomb', 'urgent');
         tile.classList.add('exploded');
         tile.textContent = '💥';
@@ -730,7 +873,7 @@ function gameTick() {
         // Mark urgent when < 3s left
         const remaining = bomb.fuse - bomb.elapsed;
         if (remaining < 3) {
-            const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+            const gridId = gridFor(bomb.lane);
             const tiles = getTiles(gridId);
             const tile = tiles[bomb.idx];
             if (tile && tile.classList.contains('bomb')) {
@@ -749,12 +892,26 @@ function gameTick() {
     const bombsOnB = G.bombs.filter(b => b.lane === 'b' && !b.transit);
     bombsOnB.forEach(bomb => {
         const remaining = bomb.fuse - bomb.elapsed;
-        // AI reaction: faster stomp when urgent, random delay otherwise
         const aiReactChance = remaining < 4 ? 0.08 : 0.03;
         if (Math.random() < aiReactChance) {
+            // Single mode: move AI ghost to bomb before stomp
+            if (G.mode === 'single') {
+                G.aiR = Math.floor(bomb.idx / COLS);
+                G.aiC = bomb.idx % COLS;
+                moveAIGhost();
+            }
             aiStompBomb(bomb);
         }
     });
+
+    // Single mode: AI ghost random wander
+    if (G.mode === 'single' && Math.random() < 0.05) {
+        G.aiR += Math.floor(Math.random() * 3) - 1;
+        G.aiC += Math.floor(Math.random() * 3) - 1;
+        G.aiR = Math.max(0, Math.min(6, G.aiR));
+        G.aiC = Math.max(0, Math.min(COLS - 1, G.aiC));
+        moveAIGhost();
+    }
 
     // Phase banner update
     const phase = G.time > 60 ? 1 : G.time > 30 ? 2 : 3;
@@ -795,8 +952,29 @@ function hud() {
     document.getElementById('h-hits-b').textContent = G.hitsB;
 }
 
+// ─── Keyboard ───
+document.addEventListener('keydown', e => {
+    if (!G.active) return;
+    let dr = 0, dc = 0;
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') dr = -1;
+    else if (k === 's' || k === 'arrowdown') dr = 1;
+    else if (k === 'a' || k === 'arrowleft') dc = -1;
+    else if (k === 'd' || k === 'arrowright') dc = 1;
+    else return;
+    e.preventDefault();
+    G.pr += dr; G.pc += dc;
+    movePlayer();
+    checkStomp();
+});
+
+window.addEventListener('resize', () => {
+    if (G.active) { movePlayer(); if (G.mode === 'single') moveAIGhost(); }
+});
+
 // ─── Game Start / End ───
-function beginGame() {
+function beginGame(mode) {
+    G.mode = mode || 'dual';
     G.time = GAME_TIME;
     G.hitsA = 0; G.hitsB = 0;
     G.sentA = 0; G.sentB = 0;
@@ -804,10 +982,46 @@ function beginGame() {
     G.bombId = 0;
     G.active = false;
 
+    // Toggle single/dual layout
+    const isSingle = G.mode === 'single';
+    document.body.classList.toggle('single-mode', isSingle);
+
+    // Arena elements visibility
+    const vsDivider = document.querySelector('.vs-divider');
+    const teamBSide = document.getElementById('grid-b').closest('.team-side');
+    const labelA = document.querySelector('.label-a');
+    vsDivider.style.display = isSingle ? 'none' : '';
+    teamBSide.style.display = isSingle ? 'none' : '';
+    labelA.textContent = isSingle ? 'SINGLE LANE' : 'TEAM A · YOU';
+
+    // Grid-a border color
+    const gridA = document.getElementById('grid-a');
+    if (isSingle) {
+        gridA.classList.remove('grid-active-a');
+        gridA.style.borderColor = 'rgba(139,92,246,0.3)';
+        gridA.style.boxShadow = '0 0 15px rgba(139,92,246,0.25)';
+    } else {
+        gridA.classList.add('grid-active-a');
+        gridA.style.borderColor = '';
+        gridA.style.boxShadow = '';
+    }
+
+    // AI ghost
+    document.getElementById('ai-ghost').style.display = 'none';
+
     hide('menu'); hide('gameover');
     show('countdown');
     document.getElementById('game-screen').style.display = 'flex';
     buildGrids();
+
+    // Player start position
+    G.pr = isSingle ? 11 : 7;
+    G.pc = 2;
+    G.aiR = 3; G.aiC = 3;
+    requestAnimationFrame(() => {
+        movePlayer();
+        if (isSingle) moveAIGhost();
+    });
 
     let n = 3;
     const el = document.getElementById('count-num');
@@ -824,6 +1038,9 @@ function beginGame() {
             hide('countdown');
             G.active = true;
             hud();
+            document.getElementById('hint-bar').textContent = G.mode === 'single'
+                ? 'WASD / ARROWS TO MOVE · STOMP BOMBS IN YOUR ZONE!'
+                : 'WASD / ARROWS TO MOVE · WALK ON BOMBS TO STOMP!';
 
             // Start game loop
             G.gameIv = setInterval(gameTick, 100);
@@ -840,13 +1057,14 @@ function endGame() {
     clearInterval(G.gameIv);
     clearInterval(G.spawnIv);
 
-    // Clean up remaining bombs
+    // Clean up remaining bomb visuals
     G.bombs.forEach(bomb => {
-        const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+        const gridId = gridFor(bomb.lane);
         const tiles = getTiles(gridId);
         const tile = tiles[bomb.idx];
-        if (tile && tile._bombHandler) {
-            tile.removeEventListener('click', tile._bombHandler);
+        if (tile) {
+            tile.classList.remove('bomb', 'urgent');
+            tile.textContent = '';
         }
     });
 
@@ -854,6 +1072,11 @@ function endGame() {
     document.getElementById('go-hits-b').textContent = G.hitsB;
     document.getElementById('go-sent-a').textContent = G.sentA;
     document.getElementById('go-sent-b').textContent = G.sentB;
+
+    // Update labels for mode
+    const isSingle = G.mode === 'single';
+    document.querySelector('#go-hits-a').nextElementSibling.textContent = isSingle ? 'YOUR ZONE HITS' : 'TEAM A (YOU) HITS';
+    document.querySelector('#go-hits-b').nextElementSibling.textContent = isSingle ? 'AI ZONE HITS' : 'TEAM B (AI) HITS';
 
     const winner = document.getElementById('winner-text');
     if (G.hitsA < G.hitsB) {
