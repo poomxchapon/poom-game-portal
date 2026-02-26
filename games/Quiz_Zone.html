@@ -8,9 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --cols: 10;
-            --rows: 10;
-            --tile-size: min(4.8vw, 4.8vh, 52px);
+            --cols: 6;
+            --rows: 15;
+            --tile-size: min(6vw, 3.8vh, 40px);
             --gap: 2px;
             --neon: #a855f7;
             --neon-dim: #7c3aed;
@@ -462,13 +462,13 @@
 
         /* ═══ Responsive ═══ */
         @media (max-height: 700px) {
-            :root { --tile-size: min(3.5vw, 3.5vh, 38px); }
+            :root { --tile-size: min(5vw, 3vh, 32px); }
             #question-bar { padding: 10px 16px; }
             .answer-btns { gap: 6px; }
             .ans-btn { padding: 7px 6px; min-height: 38px; }
         }
         @media (max-width: 500px) {
-            :root { --tile-size: min(8vw, 5vh, 40px); }
+            :root { --tile-size: min(10vw, 3.5vh, 34px); }
             .hud-chip { padding: 3px 8px; font-size: 0.65rem; }
         }
     </style>
@@ -649,14 +649,14 @@
 // ═══════════════════════════════════════════
 //  QUIZ ZONE — Engine v2
 // ═══════════════════════════════════════════
-const COLS = 10, ROWS = 10, QTIME = 10;
+const COLS = 6, ROWS = 15, QTIME = 10;
 const ZCOLORS = ['za','zb','zc','zd'];
 const ZDIM = ['za-dim','zb-dim','zc-dim','zd-dim'];
 
 const G = {
     cat: 'general', diff: 'easy', qs: [], qi: 0,
     score: 0, ok: 0, no: 0, results: [],
-    pr: 5, pc: 5, timer: QTIME, tiv: null,
+    pr: 7, pc: 3, timer: QTIME, tiv: null,
     answered: false, active: false, aiQuiz: null,
     currentZone: -1, lockTimer: null,
 };
@@ -763,13 +763,13 @@ const BANK={general:{easy:[
 {q:"Which is a gerund?",c:["To swim","Swimming","Swam","Swim"],a:1},
 ]}};
 
-// ─── Zones (10x10 grid, 4 quadrants) ───
+// ─── Zones (6x15 grid, 4 quadrants) ───
 function zones(){
     return [
-        {sr:1,er:4,sc:0,ec:4},  // A = top-left
-        {sr:1,er:4,sc:5,ec:9},  // B = top-right
-        {sr:6,er:9,sc:0,ec:4},  // C = bottom-left
-        {sr:6,er:9,sc:5,ec:9},  // D = bottom-right
+        {sr:1,er:4,sc:0,ec:2},   // A = top-left
+        {sr:1,er:4,sc:3,ec:5},   // B = top-right
+        {sr:10,er:13,sc:0,ec:2}, // C = bottom-left
+        {sr:10,er:13,sc:3,ec:5}, // D = bottom-right
     ];
 }
 
@@ -993,7 +993,7 @@ function showQ(){
     const q=G.qs[G.qi];
     G.answered=false;
     G.timer=QTIME;
-    G.pr=5;G.pc=5;
+    G.pr=7;G.pc=3;
     G.currentZone=-1;
     clearTimeout(G.lockTimer); G.lockTimer=null;
 

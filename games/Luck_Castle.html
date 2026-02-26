@@ -8,9 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --cols: 10;
-            --rows: 10;
-            --tile-size: min(4vw, 4vh, 42px);
+            --cols: 6;
+            --rows: 15;
+            --tile-size: min(6vw, 3.8vh, 40px);
             --gap: 2px;
             --gold: #fbbf24;
             --gold-dim: #d97706;
@@ -582,16 +582,16 @@
 
         /* Responsive */
         @media (max-height: 700px) {
-            :root { --tile-size: min(3.2vw, 3.2vh, 34px); }
+            :root { --tile-size: min(5vw, 3vh, 32px); }
             .door-card { max-width: 110px; }
         }
         @media (max-height: 600px) {
-            :root { --tile-size: min(2.8vw, 2.8vh, 28px); }
+            :root { --tile-size: min(4vw, 2.5vh, 26px); }
             .door-card { max-width: 90px; }
             .door-front .door-emblem { width: 32px; height: 32px; font-size: 1.2rem; }
         }
         @media (max-width: 500px) {
-            :root { --tile-size: min(7.5vw, 4.5vh, 36px); }
+            :root { --tile-size: min(10vw, 3.5vh, 34px); }
             .doors-row { gap: 6px; }
             .door-card { max-width: 75px; }
             .door-front .door-emblem { width: 30px; height: 30px; font-size: 1rem; }
@@ -734,14 +734,14 @@
 // ═══════════════════════════════════════════
 //  LUCK CASTLE — Engine v2 (Door Card Edition)
 // ═══════════════════════════════════════════
-const COLS=10, ROWS=10, QTIME=8, ROUNDS=10;
+const COLS=6, ROWS=15, QTIME=8, ROUNDS=10;
 const ZCOLORS=['za','zb','zc','zd'];
 const ZDIM=['za-dim','zb-dim','zc-dim','zd-dim'];
 const ZONE_KEYS=['a','b','c','d'];
 
 const G = {
     round:0, score:0, results:[],
-    pr:5, pc:5, timer:QTIME, tiv:null,
+    pr:7, pc:3, timer:QTIME, tiv:null,
     confirmed:false, active:false,
     currentZone:-1, lockTimer:null,
     challenges:[], pointMap:[],
@@ -782,10 +782,10 @@ const POINT_POOLS = [
 
 function zones(){
     return [
-        {sr:1,er:4,sc:0,ec:4},
-        {sr:1,er:4,sc:5,ec:9},
-        {sr:6,er:9,sc:0,ec:4},
-        {sr:6,er:9,sc:5,ec:9},
+        {sr:1,er:4,sc:0,ec:2},   // A = top-left
+        {sr:1,er:4,sc:3,ec:5},   // B = top-right
+        {sr:10,er:13,sc:0,ec:2}, // C = bottom-left
+        {sr:10,er:13,sc:3,ec:5}, // D = bottom-right
     ];
 }
 
@@ -1054,7 +1054,7 @@ function showRound(){
     const ch=G.challenges[G.round];
     G.confirmed=false;
     G.timer=QTIME;
-    G.pr=5;G.pc=5;
+    G.pr=7;G.pc=3;
     G.currentZone=-1;
     clearTimeout(G.lockTimer); G.lockTimer=null;
 
