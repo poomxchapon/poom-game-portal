@@ -560,34 +560,40 @@ function spawnBomb(lane) {
 }
 
 function playerStompBomb(bomb) {
-    if (!G.active || bomb.lane !== 'a') return;
+    if (!G.active || bomb.lane !== 'a' || bomb.transit) return;
+    if (!G.bombs.some(b => b.id === bomb.id)) return; // already exploded/removed
     // Remove from lane A
     removeBombVisual(bomb);
+    bomb.transit = true; // prevent tick from exploding during transit
     G.sentA++;
 
     showResult('SENT! →', 'send');
 
     // Send to lane B after brief delay
     setTimeout(() => {
-        if (!G.active) return;
+        if (!G.active || !G.bombs.some(b => b.id === bomb.id)) return;
         bomb.lane = 'b';
         bomb.elapsed = 0;
         bomb.fuse = 3 + Math.random() * 6; // shorter fuse after transfer
+        bomb.transit = false;
         placeBombVisual(bomb);
     }, 300);
 }
 
 function aiStompBomb(bomb) {
-    if (!G.active || bomb.lane !== 'b') return;
+    if (!G.active || bomb.lane !== 'b' || bomb.transit) return;
+    if (!G.bombs.some(b => b.id === bomb.id)) return;
     removeBombVisual(bomb);
+    bomb.transit = true;
     G.sentB++;
 
     // Send back to lane A
     setTimeout(() => {
-        if (!G.active) return;
+        if (!G.active || !G.bombs.some(b => b.id === bomb.id)) return;
         bomb.lane = 'a';
         bomb.elapsed = 0;
         bomb.fuse = 3 + Math.random() * 6;
+        bomb.transit = false;
         placeBombVisual(bomb);
     }, 300);
 }
@@ -715,9 +721,10 @@ function gameTick() {
 
     document.getElementById('h-time').textContent = Math.ceil(G.time);
 
-    // Update bomb fuses
+    // Update bomb fuses (skip bombs in transit)
     const toExplode = [];
     G.bombs.forEach(bomb => {
+        if (bomb.transit) return; // in transit between lanes, skip
         bomb.elapsed += dt;
 
         // Mark urgent when < 3s left
@@ -738,8 +745,8 @@ function gameTick() {
 
     toExplode.forEach(b => explodeBomb(b));
 
-    // AI logic: stomp bombs on lane B
-    const bombsOnB = G.bombs.filter(b => b.lane === 'b');
+    // AI logic: stomp bombs on lane B (skip transit)
+    const bombsOnB = G.bombs.filter(b => b.lane === 'b' && !b.transit);
     bombsOnB.forEach(bomb => {
         const remaining = bomb.fuse - bomb.elapsed;
         // AI reaction: faster stomp when urgent, random delay otherwise
@@ -763,7 +770,7 @@ function spawnTick() {
 
     const elapsed = GAME_TIME - G.time;
     const maxBombs = elapsed < 30 ? 1 : elapsed < 60 ? 2 : 3;
-    const currentBombs = G.bombs.length;
+    const currentBombs = G.bombs.length; // count ALL including transit to prevent over-spawning
 
     if (currentBombs < maxBombs) {
         // Spawn on random lane
