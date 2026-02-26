@@ -163,8 +163,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            padding: 10px;
+            gap: 6px;
+            padding: 8px;
         }
 
         /* Top HUD */
@@ -619,20 +619,6 @@
         <div class="hud-chip"><span style="color:var(--correct);" id="h-ok">0</span><span style="color:#333;">/</span><span style="color:var(--wrong);" id="h-no">0</span></div>
     </div>
 
-    <!-- Question -->
-    <div id="question-bar">
-        <div id="question-num">Q1 / 10</div>
-        <div id="question-text">—</div>
-    </div>
-
-    <!-- Answer buttons right below question (click = teleport to zone) -->
-    <div class="answer-btns" id="ans-btns">
-        <button class="ans-btn a" data-i="0" onclick="goToZone(0)"></button>
-        <button class="ans-btn b" data-i="1" onclick="goToZone(1)"></button>
-        <button class="ans-btn c" data-i="2" onclick="goToZone(2)"></button>
-        <button class="ans-btn d" data-i="3" onclick="goToZone(3)"></button>
-    </div>
-
     <!-- Timer -->
     <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
 
@@ -640,6 +626,19 @@
     <div id="grid-wrap">
         <div id="game-grid"></div>
         <div id="player"></div>
+    </div>
+
+    <!-- Question + Answers (close together below grid) -->
+    <div id="question-bar">
+        <div id="question-num">Q1 / 10</div>
+        <div id="question-text">—</div>
+    </div>
+
+    <div class="answer-btns" id="ans-btns">
+        <button class="ans-btn a" data-i="0" onclick="goToZone(0)"></button>
+        <button class="ans-btn b" data-i="1" onclick="goToZone(1)"></button>
+        <button class="ans-btn c" data-i="2" onclick="goToZone(2)"></button>
+        <button class="ans-btn d" data-i="3" onclick="goToZone(3)"></button>
     </div>
 
     <div class="hint-bar" id="hint-bar">เดินไปยืนในโซนคำตอบ &middot; WASD / ARROWS &middot; หมดเวลา = ยืนยันคำตอบ</div>
@@ -656,7 +655,7 @@ const ZDIM = ['za-dim','zb-dim','zc-dim','zd-dim'];
 const G = {
     cat: 'general', diff: 'easy', qs: [], qi: 0,
     score: 0, ok: 0, no: 0, results: [],
-    pr: 7, pc: 3, timer: QTIME, tiv: null,
+    pr: 7, pc: 2, timer: QTIME, tiv: null,
     answered: false, active: false, aiQuiz: null,
     currentZone: -1, lockTimer: null,
 };
@@ -801,13 +800,15 @@ function moveP(){
     G.pr=Math.max(0,Math.min(ROWS-1,G.pr));
     G.pc=Math.max(0,Math.min(COLS-1,G.pc));
     const p=document.getElementById('player');
-    const grid=document.getElementById('game-grid');
+    const wrap=document.getElementById('grid-wrap');
     const tile=document.querySelector(`.tile[data-r="${G.pr}"][data-c="${G.pc}"]`);
-    if(!tile) return;
-    p.style.width=tile.offsetWidth+'px';
-    p.style.height=tile.offsetHeight+'px';
-    p.style.left=(grid.offsetLeft+tile.offsetLeft)+'px';
-    p.style.top=(grid.offsetTop+tile.offsetTop)+'px';
+    if(!tile||!wrap) return;
+    const wRect=wrap.getBoundingClientRect();
+    const tRect=tile.getBoundingClientRect();
+    p.style.width=tRect.width+'px';
+    p.style.height=tRect.height+'px';
+    p.style.left=(tRect.left-wRect.left)+'px';
+    p.style.top=(tRect.top-wRect.top)+'px';
 }
 
 // ─── Display Zones ───
@@ -840,18 +841,19 @@ function showZones(choices){
     // Zone labels on grid
     document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
     setTimeout(()=>{
-        const grid=document.getElementById('game-grid');
         const wrap=document.getElementById('grid-wrap');
+        const wRect=wrap.getBoundingClientRect();
         zz.forEach((z,i)=>{
             if(i>=choices.length) return;
             const cr=Math.floor((z.sr+z.er)/2), cc=Math.floor((z.sc+z.ec)/2);
             const refTile=document.querySelector(`.tile[data-r="${cr}"][data-c="${cc}"]`);
             if(!refTile) return;
+            const tRect=refTile.getBoundingClientRect();
             const lbl=document.createElement('div');
             lbl.className='zone-lbl lbl-'+['a','b','c','d'][i];
             lbl.textContent=choices[i];
-            lbl.style.left=(grid.offsetLeft+refTile.offsetLeft)+'px';
-            lbl.style.top=(grid.offsetTop+refTile.offsetTop)+'px';
+            lbl.style.left=(tRect.left-wRect.left)+'px';
+            lbl.style.top=(tRect.top-wRect.top)+'px';
             wrap.appendChild(lbl);
         });
     },60);
@@ -993,7 +995,7 @@ function showQ(){
     const q=G.qs[G.qi];
     G.answered=false;
     G.timer=QTIME;
-    G.pr=7;G.pc=3;
+    G.pr=7;G.pc=2;
     G.currentZone=-1;
     clearTimeout(G.lockTimer); G.lockTimer=null;
 
@@ -1056,6 +1058,9 @@ function beginGame(){
     document.getElementById('game-screen').style.display='flex';
 
     buildGrid();
+    // Position player in center of grid immediately
+    G.pr=7;G.pc=2;
+    requestAnimationFrame(()=>moveP());
 
     // Countdown
     let n=3;

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bomb Transporter: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 6;
+            --rows: 15;
+            --tile-size: min(3.5vw, 3.5vh, 36px);
+            --gap: 2px;
+            --team-a: #ef4444;
+            --team-a-glow: rgba(239,68,68,0.5);
+            --team-a-dim: rgba(239,68,68,0.15);
+            --team-b: #3b82f6;
+            --team-b-glow: rgba(59,130,246,0.5);
+            --team-b-dim: rgba(59,130,246,0.15);
+            --bomb: #ef4444;
+            --bomb-glow: rgba(239,68,68,0.6);
+            --safe: #22c55e;
+            --warn: #f59e0b;
+            --bg: #0a0810;
+            --panel: #12101e;
+            --panel-border: #1e1a35;
+            --tile-bg: #1a1530;
+            --gold: #fbbf24;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none; touch-action: none;
+        }
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(239,68,68,0.003) 2px, rgba(239,68,68,0.003) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,3,10,0.97);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100; padding: 20px;
+        }
+        .overlay.hidden { display: none; }
+
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.6rem, 5vw, 2.8rem);
+            letter-spacing: 4px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .title-bomb { color: var(--team-a); text-shadow: 0 0 30px var(--team-a-glow); }
+        .title-transport { color: var(--warn); text-shadow: 0 0 30px rgba(245,158,11,0.5); }
+        .menu-sub {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; letter-spacing: 5px; color: #444;
+        }
+        .menu-divider {
+            width: 120px; height: 2px;
+            background: linear-gradient(90deg, var(--team-a), transparent 30%, transparent 70%, var(--team-b));
+            margin: 14px auto;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.8rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            color: #fff;
+            background: linear-gradient(135deg, var(--team-a), var(--warn), #f97316);
+            border: none; padding: 14px 40px;
+            border-radius: 10px; cursor: pointer;
+            box-shadow: 0 0 25px rgba(239,68,68,0.3);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(239,68,68,0.5); }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+        .btn-ghost {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.6rem;
+            letter-spacing: 2px; color: var(--warn);
+            background: rgba(245,158,11,0.08);
+            border: 1px solid rgba(245,158,11,0.25);
+            padding: 10px 24px; border-radius: 8px;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: rgba(245,158,11,0.15); }
+
+        /* Game Layout */
+        #game-screen {
+            display: none;
+            width: 100vw; height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px;
+        }
+
+        /* HUD */
+        .hud-top {
+            display: flex; align-items: center; gap: 12px;
+            justify-content: center; flex-wrap: wrap;
+        }
+        .hud-chip {
+            display: flex; align-items: center; gap: 5px;
+            padding: 3px 10px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px; font-size: 0.7rem;
+        }
+        .hud-chip .val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.85rem;
+        }
+
+        /* Phase Banner */
+        #phase-banner {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+            letter-spacing: 3px;
+            text-align: center;
+            padding: 4px 20px;
+            border-radius: 8px;
+            min-height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--warn);
+            background: rgba(245,158,11,0.1);
+            border: 1px solid rgba(245,158,11,0.3);
+            text-shadow: 0 0 20px rgba(245,158,11,0.5);
+        }
+
+        /* Arena */
+        .arena {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .team-side {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 4px;
+        }
+        .team-label {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.55rem;
+            letter-spacing: 3px;
+            padding: 3px 12px;
+            border-radius: 6px;
+        }
+        .label-a {
+            color: var(--team-a);
+            background: var(--team-a-dim);
+            border: 1px solid rgba(239,68,68,0.2);
+        }
+        .label-b {
+            color: var(--team-b);
+            background: var(--team-b-dim);
+            border: 1px solid rgba(59,130,246,0.2);
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap);
+            padding: 6px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--panel-border);
+            transition: box-shadow 0.3s;
+            position: relative;
+        }
+        .team-grid.grid-active-a { box-shadow: 0 0 15px var(--team-a-glow); border-color: rgba(239,68,68,0.3); }
+        .team-grid.grid-active-b { box-shadow: 0 0 15px var(--team-b-glow); border-color: rgba(59,130,246,0.3); }
+
+        /* Tiles */
+        .g-tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background: var(--tile-bg);
+            border-radius: 4px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.55rem;
+            color: transparent;
+            position: relative;
+        }
+        .g-tile:hover:not(.locked) { background: #221a40; }
+
+        /* Bomb tile */
+        .g-tile.bomb {
+            background: var(--bomb) !important;
+            border-color: #f87171;
+            box-shadow: 0 0 14px var(--bomb-glow);
+            color: #fff !important;
+            cursor: pointer;
+            animation: bombPulse 0.6s ease-in-out infinite alternate;
+        }
+        @keyframes bombPulse {
+            0% { box-shadow: 0 0 10px var(--bomb-glow); transform: scale(1); }
+            100% { box-shadow: 0 0 22px var(--bomb-glow); transform: scale(1.06); }
+        }
+        .g-tile.bomb.urgent {
+            animation: bombUrgent 0.25s ease-in-out infinite alternate;
+            background: #dc2626 !important;
+        }
+        @keyframes bombUrgent {
+            0% { box-shadow: 0 0 14px var(--bomb-glow); transform: scale(1); }
+            100% { box-shadow: 0 0 30px rgba(239,68,68,0.8); transform: scale(1.1); }
+        }
+
+        /* Explosion */
+        .g-tile.exploded {
+            background: #ff6600 !important;
+            border-color: #fbbf24;
+            box-shadow: 0 0 30px rgba(255,102,0,0.8);
+            color: #fff !important;
+            animation: explode 0.6s ease-out forwards;
+        }
+        @keyframes explode {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.4); background: #fff; }
+            60% { transform: scale(1.2); }
+            100% { transform: scale(0.8); opacity: 0.3; }
+        }
+
+        /* Sent animation */
+        .g-tile.sent {
+            animation: sentAway 0.4s ease-in forwards;
+        }
+        @keyframes sentAway {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.3) translateX(100px); opacity: 0; }
+        }
+
+        /* VS divider */
+        .vs-divider {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 1.2rem;
+            color: var(--warn);
+            text-shadow: 0 0 20px rgba(245,158,11,0.5);
+            padding: 0 4px;
+            display: flex; flex-direction: column;
+            align-items: center; gap: 4px;
+        }
+        .vs-arrow {
+            font-size: 1.4rem;
+            animation: arrowBounce 1s ease-in-out infinite alternate;
+        }
+        @keyframes arrowBounce {
+            0% { transform: translateX(-3px); opacity: 0.4; }
+            100% { transform: translateX(3px); opacity: 1; }
+        }
+
+        /* Timer */
+        .timer-track {
+            width: 100%; max-width: 600px;
+            height: 6px;
+            background: #1a1530;
+            border-radius: 3px; overflow: hidden;
+        }
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--team-a), var(--warn));
+            border-radius: 3px;
+            transition: width 0.15s linear;
+        }
+        .timer-fill.urgent { background: linear-gradient(90deg, #dc2626, #ff0000); }
+
+        /* Hint */
+        .hint-bar {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.45rem; letter-spacing: 2px;
+            color: #555; text-align: center;
+        }
+
+        /* Explosion counter */
+        .explosion-counter {
+            position: absolute;
+            top: -8px; right: -8px;
+            background: var(--bomb);
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 0.6rem;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 8px var(--bomb-glow);
+            z-index: 10;
+        }
+
+        /* Result popup */
+        #result-popup {
+            position: fixed; inset: 0;
+            display: none; align-items: center; justify-content: center;
+            z-index: 90; pointer-events: none;
+        }
+        #result-popup.show { display: flex; }
+        .result-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            letter-spacing: 3px;
+            padding: 12px 30px;
+            border-radius: 12px;
+            animation: resultPop 1.2s ease-out forwards;
+        }
+        .result-boom { color: #ff6600; background: rgba(255,102,0,0.15); text-shadow: 0 0 30px rgba(255,102,0,0.6); }
+        .result-safe { color: var(--safe); background: rgba(34,197,94,0.1); text-shadow: 0 0 30px rgba(34,197,94,0.4); }
+        .result-send { color: var(--warn); background: rgba(245,158,11,0.1); text-shadow: 0 0 30px rgba(245,158,11,0.4); }
+        @keyframes resultPop {
+            0% { transform: scale(0); opacity: 0; }
+            25% { transform: scale(1.15); opacity: 1; }
+            50% { transform: scale(1); }
+            100% { transform: scale(1) translateY(-10px); opacity: 0; }
+        }
+
+        /* Countdown */
+        .countdown-num {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6rem; font-weight: 900;
+            color: var(--warn);
+            text-shadow: 0 0 60px rgba(245,158,11,0.5);
+            animation: countIn 0.5s ease-out;
+        }
+        @keyframes countIn { 0%{transform:scale(1.6);opacity:0;} 50%{opacity:1;} 100%{transform:scale(1);} }
+
+        /* Game Over stats */
+        .stat-box {
+            text-align: center; padding: 10px 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+        }
+        .stat-val { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem; }
+        .stat-label { font-size: 0.55rem; color: #555; margin-top: 2px; letter-spacing: 1px; }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .scanline { display: none; }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            :root { --tile-size: min(3.2vw, 3.2vh, 30px); }
+        }
+        @media (max-width: 700px) {
+            :root { --tile-size: min(2.8vw, 2.8vh, 26px); }
+            .arena { gap: 8px; }
+            .vs-divider { font-size: 1rem; }
+            .team-label { font-size: 0.45rem; letter-spacing: 2px; }
+        }
+        @media (max-width: 500px) {
+            :root { --tile-size: min(7.5vw, 4vh, 30px); }
+            .arena { flex-direction: column; gap: 10px; }
+            .vs-divider { font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!-- MAIN MENU -->
+<div id="menu" class="overlay">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub">CSM-C2-005 &middot; FORTAL INTERACTIVE</div>
+        <div class="menu-title" style="margin:8px 0;">
+            <span class="title-bomb">BOMB</span><br>
+            <span class="title-transport">TRANSPORTER</span>
+        </div>
+        <div class="menu-divider"></div>
+        <div style="font-size:0.85rem;color:#f59e0b;margin-bottom:4px;">Reflex / Team / Strategy</div>
+        <div style="font-size:0.75rem;color:#777;max-width:340px;margin:0 auto 20px;line-height:1.7;">
+            ระเบิดปรากฏในสนาม!<br>
+            <span style="color:var(--team-a);">เหยียบเพื่อส่งไปฝั่งตรงข้าม</span> &middot;
+            ระเบิดมี<span style="color:var(--warn);">เวลาลับ</span><br>
+            ทีมที่โดนน้อยกว่าชนะ!
+        </div>
+        <button class="btn-primary" onclick="beginGame()">START!</button>
+        <div style="font-size:0.45rem;color:#333;margin-top:12px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+            STOMP BOMBS &middot; 90 SECONDS &middot; 2 LANES
+        </div>
+    </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div id="countdown" class="overlay hidden">
+    <div id="count-num" class="countdown-num"></div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="overlay hidden">
+    <div style="text-align:center;max-width:440px;width:90vw;">
+        <div class="menu-sub" style="margin-bottom:6px;">TIME'S UP!</div>
+        <div id="winner-text" class="menu-title" style="font-size:1.8rem;"></div>
+        <div class="menu-divider"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="stat-box" style="border-color:rgba(239,68,68,0.3);">
+                <div id="go-hits-a" class="stat-val" style="color:var(--team-a);">0</div>
+                <div class="stat-label">TEAM A (YOU) HITS</div>
+            </div>
+            <div class="stat-box" style="border-color:rgba(59,130,246,0.3);">
+                <div id="go-hits-b" class="stat-val" style="color:var(--team-b);">0</div>
+                <div class="stat-label">TEAM B (AI) HITS</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="stat-box">
+                <div id="go-sent-a" class="stat-val" style="color:var(--warn);">0</div>
+                <div class="stat-label">BOMBS SENT</div>
+            </div>
+            <div class="stat-box">
+                <div id="go-sent-b" class="stat-val" style="color:var(--warn);">0</div>
+                <div class="stat-label">BOMBS SENT</div>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn-primary" onclick="beginGame()" style="font-size:0.7rem;padding:12px 24px;">REMATCH</button>
+            <button class="btn-ghost" onclick="goMenu()">MENU</button>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT POPUP -->
+<div id="result-popup"><div id="result-text" class="result-text"></div></div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+    <div class="hud-top">
+        <div class="hud-chip"><span style="color:#888;">Time</span> <span id="h-time" class="val" style="color:var(--warn);">90</span></div>
+        <div class="hud-chip"><span style="color:var(--team-a);">You</span> <span id="h-hits-a" class="val" style="color:var(--team-a);">0</span><span style="color:#555;font-size:0.55rem;">hits</span></div>
+        <div class="hud-chip"><span style="color:var(--team-b);">AI</span> <span id="h-hits-b" class="val" style="color:var(--team-b);">0</span><span style="color:#555;font-size:0.55rem;">hits</span></div>
+    </div>
+
+    <div id="phase-banner">BOMB INCOMING!</div>
+
+    <div class="arena" id="arena">
+        <div class="team-side">
+            <div class="team-label label-a">TEAM A &middot; YOU</div>
+            <div class="team-grid grid-active-a" id="grid-a" style="position:relative;"></div>
+        </div>
+        <div class="vs-divider">
+            <span class="vs-arrow">&larr;</span>
+            <span>VS</span>
+            <span class="vs-arrow" style="animation-delay:0.5s;">&rarr;</span>
+        </div>
+        <div class="team-side">
+            <div class="team-label label-b">TEAM B &middot; AI</div>
+            <div class="team-grid grid-active-b" id="grid-b" style="position:relative;"></div>
+        </div>
+    </div>
+
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+    <div class="hint-bar" id="hint-bar">STOMP THE BOMB TO SEND IT TO THE OTHER SIDE!</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  BOMB TRANSPORTER — Engine v1
+// ═══════════════════════════════════════════
+const COLS = 6, ROWS = 15, TOTAL = COLS * ROWS;
+const GAME_TIME = 90;
+
+const G = {
+    time: GAME_TIME,
+    hitsA: 0, hitsB: 0,
+    sentA: 0, sentB: 0,
+    bombs: [],      // { id, lane, idx, fuse, elapsed, el }
+    bombId: 0,
+    gameIv: null,
+    bombIv: null,
+    active: false,
+    nextSpawn: 0,
+    spawnIv: null,
+};
+
+// ─── Grid Building ───
+function buildGrids() {
+    ['grid-a','grid-b'].forEach(id => {
+        const g = document.getElementById(id);
+        g.innerHTML = '';
+        for (let i = 0; i < TOTAL; i++) {
+            const t = document.createElement('div');
+            t.className = 'g-tile';
+            t.dataset.idx = i;
+            g.appendChild(t);
+        }
+    });
+}
+
+function getTiles(gridId) {
+    return Array.from(document.querySelectorAll(`#${gridId} .g-tile`));
+}
+
+// ─── Bomb Management ───
+function spawnBomb(lane) {
+    if (!G.active) return;
+    const gridId = lane === 'a' ? 'grid-a' : 'grid-b';
+    const tiles = getTiles(gridId);
+
+    // Find empty tile
+    const occupied = G.bombs.filter(b => b.lane === lane).map(b => b.idx);
+    const available = [];
+    for (let i = 0; i < TOTAL; i++) {
+        if (!occupied.includes(i)) available.push(i);
+    }
+    if (available.length === 0) return;
+
+    const idx = available[Math.floor(Math.random() * available.length)];
+    const fuse = 5 + Math.random() * 10; // 5-15 seconds
+    const bomb = {
+        id: G.bombId++,
+        lane,
+        idx,
+        fuse,
+        elapsed: 0,
+    };
+
+    const tile = tiles[idx];
+    tile.classList.add('bomb');
+    tile.textContent = '💣';
+    tile.style.color = '#fff';
+
+    // Click handler for player lane (a)
+    if (lane === 'a') {
+        tile._bombHandler = () => playerStompBomb(bomb);
+        tile.addEventListener('click', tile._bombHandler);
+    }
+
+    G.bombs.push(bomb);
+}
+
+function playerStompBomb(bomb) {
+    if (!G.active || bomb.lane !== 'a') return;
+    // Remove from lane A
+    removeBombVisual(bomb);
+    G.sentA++;
+
+    showResult('SENT! →', 'send');
+
+    // Send to lane B after brief delay
+    setTimeout(() => {
+        if (!G.active) return;
+        bomb.lane = 'b';
+        bomb.elapsed = 0;
+        bomb.fuse = 3 + Math.random() * 6; // shorter fuse after transfer
+        placeBombVisual(bomb);
+    }, 300);
+}
+
+function aiStompBomb(bomb) {
+    if (!G.active || bomb.lane !== 'b') return;
+    removeBombVisual(bomb);
+    G.sentB++;
+
+    // Send back to lane A
+    setTimeout(() => {
+        if (!G.active) return;
+        bomb.lane = 'a';
+        bomb.elapsed = 0;
+        bomb.fuse = 3 + Math.random() * 6;
+        placeBombVisual(bomb);
+    }, 300);
+}
+
+function placeBombVisual(bomb) {
+    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const tiles = getTiles(gridId);
+
+    // Find empty spot
+    const occupied = G.bombs.filter(b => b.lane === bomb.lane && b.id !== bomb.id).map(b => b.idx);
+    const available = [];
+    for (let i = 0; i < TOTAL; i++) {
+        if (!occupied.includes(i)) available.push(i);
+    }
+    if (available.length === 0) { explodeBomb(bomb); return; }
+
+    bomb.idx = available[Math.floor(Math.random() * available.length)];
+    const tile = tiles[bomb.idx];
+    tile.classList.add('bomb');
+    tile.textContent = '💣';
+    tile.style.color = '#fff';
+
+    if (bomb.lane === 'a') {
+        tile._bombHandler = () => playerStompBomb(bomb);
+        tile.addEventListener('click', tile._bombHandler);
+    }
+}
+
+function removeBombVisual(bomb) {
+    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const tiles = getTiles(gridId);
+    const tile = tiles[bomb.idx];
+    if (tile) {
+        if (tile._bombHandler) {
+            tile.removeEventListener('click', tile._bombHandler);
+            tile._bombHandler = null;
+        }
+        tile.classList.remove('bomb', 'urgent');
+        tile.classList.add('sent');
+        tile.textContent = '';
+        tile.style.color = 'transparent';
+        setTimeout(() => tile.classList.remove('sent'), 400);
+    }
+}
+
+function explodeBomb(bomb) {
+    const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+    const tiles = getTiles(gridId);
+    const tile = tiles[bomb.idx];
+
+    // Visual explosion
+    if (tile) {
+        if (tile._bombHandler) {
+            tile.removeEventListener('click', tile._bombHandler);
+            tile._bombHandler = null;
+        }
+        tile.classList.remove('bomb', 'urgent');
+        tile.classList.add('exploded');
+        tile.textContent = '💥';
+        tile.style.color = '#fff';
+
+        // Explosion spreads to neighbors
+        const neighbors = getNeighbors(bomb.idx);
+        neighbors.forEach((ni, i) => {
+            setTimeout(() => {
+                if (tiles[ni]) {
+                    tiles[ni].classList.add('exploded');
+                    setTimeout(() => tiles[ni].classList.remove('exploded'), 600);
+                }
+            }, i * 80);
+        });
+
+        setTimeout(() => {
+            if (tile) {
+                tile.classList.remove('exploded');
+                tile.textContent = '';
+                tile.style.color = 'transparent';
+            }
+        }, 800);
+    }
+
+    // Score
+    if (bomb.lane === 'a') {
+        G.hitsA++;
+        showResult('BOOM! 💥', 'boom');
+    } else {
+        G.hitsB++;
+        showResult('AI HIT! 💥', 'boom');
+    }
+
+    // Remove from list
+    G.bombs = G.bombs.filter(b => b.id !== bomb.id);
+    hud();
+}
+
+function getNeighbors(idx) {
+    const r = Math.floor(idx / COLS);
+    const c = idx % COLS;
+    const result = [];
+    for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                result.push(nr * COLS + nc);
+            }
+        }
+    }
+    return result;
+}
+
+// ─── Game Tick ───
+function gameTick() {
+    if (!G.active) return;
+
+    const dt = 0.1;
+    G.time -= dt;
+    if (G.time <= 0) { G.time = 0; endGame(); return; }
+
+    // Update timer bar
+    const pct = (G.time / GAME_TIME) * 100;
+    const f = document.getElementById('timer-fill');
+    f.style.width = pct + '%';
+    f.classList.toggle('urgent', G.time < 15);
+
+    document.getElementById('h-time').textContent = Math.ceil(G.time);
+
+    // Update bomb fuses
+    const toExplode = [];
+    G.bombs.forEach(bomb => {
+        bomb.elapsed += dt;
+
+        // Mark urgent when < 3s left
+        const remaining = bomb.fuse - bomb.elapsed;
+        if (remaining < 3) {
+            const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+            const tiles = getTiles(gridId);
+            const tile = tiles[bomb.idx];
+            if (tile && tile.classList.contains('bomb')) {
+                tile.classList.add('urgent');
+            }
+        }
+
+        if (bomb.elapsed >= bomb.fuse) {
+            toExplode.push(bomb);
+        }
+    });
+
+    toExplode.forEach(b => explodeBomb(b));
+
+    // AI logic: stomp bombs on lane B
+    const bombsOnB = G.bombs.filter(b => b.lane === 'b');
+    bombsOnB.forEach(bomb => {
+        const remaining = bomb.fuse - bomb.elapsed;
+        // AI reaction: faster stomp when urgent, random delay otherwise
+        const aiReactChance = remaining < 4 ? 0.08 : 0.03;
+        if (Math.random() < aiReactChance) {
+            aiStompBomb(bomb);
+        }
+    });
+
+    // Phase banner update
+    const phase = G.time > 60 ? 1 : G.time > 30 ? 2 : 3;
+    const banner = document.getElementById('phase-banner');
+    if (phase === 1) banner.textContent = 'PHASE 1 — 1 BOMB';
+    else if (phase === 2) banner.textContent = 'PHASE 2 — 2 BOMBS!';
+    else banner.textContent = 'PHASE 3 — 3 BOMBS!!';
+}
+
+// ─── Bomb Spawning ───
+function spawnTick() {
+    if (!G.active) return;
+
+    const elapsed = GAME_TIME - G.time;
+    const maxBombs = elapsed < 30 ? 1 : elapsed < 60 ? 2 : 3;
+    const currentBombs = G.bombs.length;
+
+    if (currentBombs < maxBombs) {
+        // Spawn on random lane
+        const lane = Math.random() < 0.5 ? 'a' : 'b';
+        spawnBomb(lane);
+    }
+}
+
+// ─── Helpers ───
+function showResult(text, type) {
+    const el = document.getElementById('result-popup');
+    const txt = document.getElementById('result-text');
+    txt.textContent = text;
+    txt.className = 'result-text result-' + type;
+    el.classList.add('show');
+    txt.style.animation = 'none'; void txt.offsetWidth; txt.style.animation = '';
+    setTimeout(() => el.classList.remove('show'), 1000);
+}
+
+function hud() {
+    document.getElementById('h-hits-a').textContent = G.hitsA;
+    document.getElementById('h-hits-b').textContent = G.hitsB;
+}
+
+// ─── Game Start / End ───
+function beginGame() {
+    G.time = GAME_TIME;
+    G.hitsA = 0; G.hitsB = 0;
+    G.sentA = 0; G.sentB = 0;
+    G.bombs = [];
+    G.bombId = 0;
+    G.active = false;
+
+    hide('menu'); hide('gameover');
+    show('countdown');
+    document.getElementById('game-screen').style.display = 'flex';
+    buildGrids();
+
+    let n = 3;
+    const el = document.getElementById('count-num');
+    el.textContent = n;
+    const iv = setInterval(() => {
+        n--;
+        if (n > 0) {
+            el.textContent = n;
+            el.className = 'countdown-num';
+            void el.offsetWidth;
+            el.className = 'countdown-num';
+        } else {
+            clearInterval(iv);
+            hide('countdown');
+            G.active = true;
+            hud();
+
+            // Start game loop
+            G.gameIv = setInterval(gameTick, 100);
+            // Spawn first bomb
+            spawnBomb(Math.random() < 0.5 ? 'a' : 'b');
+            // Spawn check every 2s
+            G.spawnIv = setInterval(spawnTick, 2000);
+        }
+    }, 700);
+}
+
+function endGame() {
+    G.active = false;
+    clearInterval(G.gameIv);
+    clearInterval(G.spawnIv);
+
+    // Clean up remaining bombs
+    G.bombs.forEach(bomb => {
+        const gridId = bomb.lane === 'a' ? 'grid-a' : 'grid-b';
+        const tiles = getTiles(gridId);
+        const tile = tiles[bomb.idx];
+        if (tile && tile._bombHandler) {
+            tile.removeEventListener('click', tile._bombHandler);
+        }
+    });
+
+    document.getElementById('go-hits-a').textContent = G.hitsA;
+    document.getElementById('go-hits-b').textContent = G.hitsB;
+    document.getElementById('go-sent-a').textContent = G.sentA;
+    document.getElementById('go-sent-b').textContent = G.sentB;
+
+    const winner = document.getElementById('winner-text');
+    if (G.hitsA < G.hitsB) {
+        winner.innerHTML = '<span class="title-transport">YOU WIN!</span>';
+    } else if (G.hitsB < G.hitsA) {
+        winner.innerHTML = '<span class="title-bomb">AI WINS!</span>';
+    } else {
+        winner.innerHTML = '<span style="color:var(--warn);">DRAW!</span>';
+    }
+
+    show('gameover');
+}
+
+function goMenu() {
+    hide('gameover');
+    document.getElementById('game-screen').style.display = 'none';
+    show('menu');
+}
+
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+</script>
+</body>
+</html>
