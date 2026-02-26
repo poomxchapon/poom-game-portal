@@ -200,7 +200,6 @@
             background: var(--tile-bg);
             border-radius: 4px;
             border: 1px solid transparent;
-            cursor: pointer;
             transition: all 0.12s;
             display: flex; align-items: center; justify-content: center;
             font-family: 'Orbitron', sans-serif;
@@ -617,18 +616,7 @@ function buildGrids() {
             }
 
             // Click-to-move on player's grid
-            if (id === 'grid-a') {
-                t.addEventListener('click', () => {
-                    if (!G.active) return;
-                    const clickR = Math.floor(i / COLS);
-                    const bounds = playerRowBounds();
-                    if (clickR < bounds.min || clickR > bounds.max) return;
-                    G.pr = clickR;
-                    G.pc = i % COLS;
-                    movePlayer();
-                    checkStomp();
-                });
-            }
+            // No click-to-move — WASD/Arrows only
             g.appendChild(t);
         }
         if (playerEl) g.appendChild(playerEl);
