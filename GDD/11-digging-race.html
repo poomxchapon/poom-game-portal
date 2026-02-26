@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDD: Digging Race - เกมขุดดิน</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #fff;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 3em;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            font-size: 1.3em;
+            opacity: 0.9;
+        }
+        .card {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255,255,255,0.3);
+        }
+        .card h2 span { margin-right: 10px; }
+        .highlight {
+            background: rgba(255,215,0,0.3);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #FFD700;
+        }
+        ul { list-style: none; padding-left: 0; }
+        li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        li:before {
+            content: "⛏️";
+            position: absolute;
+            left: 0;
+        }
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .tech-item {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .flow-diagram {
+            background: rgba(0,0,0,0.3);
+            padding: 25px;
+            border-radius: 15px;
+            font-family: monospace;
+            font-size: 0.95em;
+            line-height: 2;
+            overflow-x: auto;
+        }
+        .architecture {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .arch-box {
+            background: rgba(0,0,0,0.25);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .arch-box h3 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .mechanic-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .mechanic-item {
+            background: rgba(0,0,0,0.2);
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .round-system {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .round {
+            background: rgba(0,0,0,0.25);
+            padding: 20px 30px;
+            border-radius: 50%;
+            text-align: center;
+        }
+        @media (max-width: 600px) {
+            .architecture { grid-template-columns: 1fr; }
+            .mechanic-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⛏️ Digging Race</h1>
+            <div class="subtitle">เกมขุดดิน — Interactive Motion-Based Competitive Game</div>
+        </div>
+
+        <!-- Overview -->
+        <div class="card">
+            <h2><span>📋</span>Game Overview</h2>
+            <div class="highlight">
+                <strong>Core Concept:</strong> แข่งขุดดิน 1v1 โดยใช้มือถือเป็น "ที่ขุด" — ยิ่งขยับเร็ว ยิ่งขุดเร็ว!
+            </div>
+            <ul>
+                <li><strong>Genre:</strong> Motion-Based Racing / Party Game</li>
+                <li><strong>Players:</strong> 2 คน (1v1 Split Screen)</li>
+                <li><strong>Platform:</strong> Web (Three.js) + Mobile Controller</li>
+                <li><strong>Duration:</strong> ~2-3 นาที/เกม (Best of 3)</li>
+                <li><strong>Target:</strong> Event, Exhibition, Party (Crowd Gatherer)</li>
+            </ul>
+        </div>
+
+        <!-- Architecture -->
+        <div class="card">
+            <h2><span>🏗️</span>System Architecture</h2>
+            <div class="architecture">
+                <div class="arch-box">
+                    <h3>🖥️</h3>
+                    <strong>Server/Display</strong>
+                    <p>Computer</p>
+                    <p style="font-size:0.85em; opacity:0.8;">Three.js + WebSocket Server</p>
+                </div>
+                <div class="arch-box">
+                    <h3>📱</h3>
+                    <strong>Player 1</strong>
+                    <p>Mobile (Left)</p>
+                    <p style="font-size:0.85em; opacity:0.8;">Gyroscope Controller</p>
+                </div>
+                <div class="arch-box">
+                    <h3>📱</h3>
+                    <strong>Player 2</strong>
+                    <p>Mobile (Right)</p>
+                    <p style="font-size:0.85em; opacity:0.8;">Gyroscope Controller</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Core Mechanics -->
+        <div class="card">
+            <h2><span>🎮</span>Core Mechanics</h2>
+            <div class="mechanic-grid">
+                <div class="mechanic-item">
+                    <h4>📲 Input System</h4>
+                    <p>Gyroscope จากมือถือ — ตรวจจับการเคลื่อนไหว/สั่น</p>
+                </div>
+                <div class="mechanic-item">
+                    <h4>⚡ Speed Conversion</h4>
+                    <p>Movement Intensity → Digging Speed</p>
+                </div>
+                <div class="mechanic-item">
+                    <h4>🏁 Win Condition</h4>
+                    <p>ขุดถึงธงชัยก่อน = ชนะรอบ</p>
+                </div>
+                <div class="mechanic-item">
+                    <h4>🏆 Match System</h4>
+                    <p>Best of 3 — ชนะ 2 รอบ = Winner</p>
+                </div>
+            </div>
+            <div class="highlight" style="margin-top: 20px;">
+                <strong>Formula:</strong> diggingSpeed = baseSpeed + (gyroIntensity * multiplier)
+            </div>
+        </div>
+
+        <!-- Round System -->
+        <div class="card">
+            <h2><span>🔄</span>Round System</h2>
+            <div class="round-system">
+                <div class="round">
+                    <div style="font-size: 2em;">1️⃣</div>
+                    <div>Round 1</div>
+                </div>
+                <div class="round">
+                    <div style="font-size: 2em;">2️⃣</div>
+                    <div>Round 2</div>
+                </div>
+                <div class="round">
+                    <div style="font-size: 2em;">3️⃣</div>
+                    <div>Round 3*</div>
+                </div>
+            </div>
+            <p style="text-align: center; margin-top: 15px; opacity: 0.8;">*ถ้าจำเป็น (ไม่เล่นถ้ามีคนชนะ 2-0)</p>
+        </div>
+
+        <!-- Game Flow -->
+        <div class="card">
+            <h2><span>🔀</span>Game Flow</h2>
+            <div class="flow-diagram">
+                🏠 Main Menu (Wait Players)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓ ครบ 2 Players<br>
+                ▶️ Start Button Active → Press Start<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                📖 Tutorial (วิธีเล่น)<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                ⏱️ Countdown: 3... 2... 1... START!<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                🎮 Round 1 → 🏆 Winner Round 1<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                🎮 Round 2 → 🏆 Winner Round 2<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓ (ถ้าจำเป็น)<br>
+                🎮 Round 3 → 🏆 Winner Round 3<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                🎉 Final Winner Celebration<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;↓<br>
+                🏠 Back to Main Menu
+            </div>
+        </div>
+
+        <!-- Visual Design -->
+        <div class="card">
+            <h2><span>🎨</span>Visual Design</h2>
+            <ul>
+                <li><strong>Style:</strong> Low Poly 3D</li>
+                <li><strong>View:</strong> Side-scrolling / Cross-section view (เห็นชั้นดิน)</li>
+                <li><strong>Split Screen:</strong> ซ้าย (P1) | ขวา (P2)</li>
+                <li><strong>Characters:</strong> คนงานเหมือง Low Poly ถือที่ขุด</li>
+                <li><strong>Terrain Layers:</strong> ดิน → หิน → แร่ → ธงชัย</li>
+                <li><strong>Particles:</strong> ดินกระเด็น, ประกายไฟเวลาโดนหิน</li>
+            </ul>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="card">
+            <h2><span>🛠️</span>Tech Stack</h2>
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <div style="font-size: 2em;">🎮</div>
+                    <strong>Three.js</strong>
+                    <p>3D Rendering</p>
+                </div>
+                <div class="tech-item">
+                    <div style="font-size: 2em;">🔌</div>
+                    <strong>WebSocket</strong>
+                    <p>Real-time Sync</p>
+                </div>
+                <div class="tech-item">
+                    <div style="font-size: 2em;">📱</div>
+                    <strong>DeviceMotion API</strong>
+                    <p>Gyroscope Input</p>
+                </div>
+                <div class="tech-item">
+                    <div style="font-size: 2em;">🌐</div>
+                    <strong>Node.js</strong>
+                    <p>Server</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Structure -->
+        <div class="card">
+            <h2><span>📁</span>Project Structure</h2>
+            <div class="flow-diagram">
+11-digging-race/<br>
+├── server/<br>
+│   ├── index.js          # WebSocket Server<br>
+│   └── package.json<br>
+├── display/<br>
+│   ├── index.html        # Game Display (Three.js)<br>
+│   ├── game.js           # Game Logic<br>
+│   └── styles.css<br>
+├── controller/<br>
+│   ├── index.html        # Mobile Controller<br>
+│   └── controller.js     # Gyroscope Handler<br>
+└── assets/<br>
+    └── models/           # Low Poly 3D Models
+            </div>
+        </div>
+
+        <!-- MVP Scope -->
+        <div class="card">
+            <h2><span>🎯</span>MVP Scope</h2>
+            <div class="highlight">
+                <strong>Phase 1 (MVP):</strong>
+            </div>
+            <ul>
+                <li>✅ WebSocket room system (join/leave)</li>
+                <li>✅ Gyroscope input → speed conversion</li>
+                <li>✅ Split screen display (2D first, then 3D)</li>
+                <li>✅ Basic character movement (depth progress)</li>
+                <li>✅ Round system (best of 3)</li>
+                <li>✅ Win/Lose detection</li>
+            </ul>
+            <div class="highlight" style="margin-top: 15px;">
+                <strong>Phase 2 (Polish):</strong>
+            </div>
+            <ul>
+                <li>⬜ Low Poly 3D characters & terrain</li>
+                <li>⬜ Particle effects</li>
+                <li>⬜ Sound effects & music</li>
+                <li>⬜ Power-ups / Obstacles</li>
+                <li>⬜ Leaderboard</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; opacity: 0.7;">
+            <p>GDD Version 1.0 | Created: January 2026</p>
+            <p>Friday Oracle | Fortal Interactive</p>
+        </div>
+    </div>
+</body>
+</html>

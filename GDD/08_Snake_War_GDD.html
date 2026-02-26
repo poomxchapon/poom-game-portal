@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake War - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #00E5FF; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #00E5FF; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #00E5FF; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #0a0e27; color: #fff; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #0a0e27; color: #00E5FF; }
+        tr:nth-child(even) { background: #f0fdff; }
+        .flow-box { background: #f0fdff; border: 2px solid #00E5FF; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #00E5FF; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #00E5FF; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .player-box { padding: 10px 15px; border-radius: 8px; margin: 10px 0; }
+        .p1 { background: #ffe5e5; border-left: 4px solid #FF1744; }
+        .p2 { background: #e5ffff; border-left: 4px solid #00E5FF; }
+        .p3 { background: #e5ffe5; border-left: 4px solid #76FF03; }
+        .p4 { background: #fffde5; border-left: 4px solid #FFEA00; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box, .header-info { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🐍</div>
+    <h1>SNAKE WARS</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Battle Royale / Multiplayer Snake</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 2-4 Players</p>
+        <p><strong>Grid Size:</strong> 50 x 30 (Game) + 6 x 10 (LED Controller)</p>
+        <p><strong>Duration:</strong> 2 minutes (120 seconds)</p>
+        <p><strong>Respawn:</strong> Yes (1.5 second delay)</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Snake Wars is a competitive multiplayer snake game where 2-4 players battle for the highest score. Unlike classic snake, players respawn after death! Eat food, hunt special items, and crash into opponents to score points. The player with the highest score when time runs out wins!</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Snake War.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select number of players (2, 3, or 4)</div>
+        <div class="step"><span class="step-number">Step 3:</span> Click "START GAME" button</div>
+        <div class="step"><span class="step-number">Step 4:</span> Countdown 3-2-1-GO! begins</div>
+        <div class="step"><span class="step-number">Step 5:</span> 2-minute battle begins!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <h3>3.1 Keyboard Controls</h3>
+    <div class="player-box p1">
+        <strong style="color: #FF1744;">Player 1 (Red):</strong> <strong>W A S D</strong>
+    </div>
+    <div class="player-box p2">
+        <strong style="color: #00E5FF;">Player 2 (Cyan):</strong> <strong>I J K L</strong>
+    </div>
+    <div class="player-box p3">
+        <strong style="color: #76FF03;">Player 3 (Green):</strong> <strong>Arrow Keys (↑ ↓ ← →)</strong>
+    </div>
+    <div class="player-box p4">
+        <strong style="color: #FFEA00;">Player 4 (Yellow):</strong> <strong>Numpad 8 4 5 6</strong>
+    </div>
+
+    <h3>3.2 LED Floor Controller</h3>
+    <p>The game includes a 6x10 LED Floor Controller with directional buttons for each player. Click or step on the arrows to control your snake!</p>
+
+    <h2>4. Scoring System</h2>
+    <table>
+        <tr>
+            <th>Item</th>
+            <th>Icon</th>
+            <th>Points</th>
+        </tr>
+        <tr>
+            <td>Regular Food</td>
+            <td>🍎 (Pink)</td>
+            <td><strong>+2 points</strong></td>
+        </tr>
+        <tr>
+            <td>Special Food (Star)</td>
+            <td>⭐ (Gold)</td>
+            <td><strong>+5 points</strong></td>
+        </tr>
+        <tr>
+            <td>Kill Enemy Snake</td>
+            <td>💀</td>
+            <td><strong>+10 points</strong></td>
+        </tr>
+    </table>
+
+    <h2>5. Game Mechanics</h2>
+    <h3>5.1 Snake Growth</h3>
+    <ul>
+        <li>Eat food = Snake grows longer</li>
+        <li>Automatic growth every 5 seconds</li>
+        <li>Longer snake = More risk of crashing!</li>
+    </ul>
+
+    <h3>5.2 Death & Respawn</h3>
+    <ul>
+        <li><strong>Hit wall:</strong> You die</li>
+        <li><strong>Hit your own body:</strong> You die</li>
+        <li><strong>Hit another snake's body:</strong> You die, they get +10 points</li>
+        <li><strong>Head-to-head collision:</strong> Both die, no points</li>
+        <li><strong>Respawn:</strong> After 1.5 seconds at your start position</li>
+        <li><strong>Invincibility:</strong> 2 seconds after respawning</li>
+    </ul>
+
+    <h3>5.3 Special Food</h3>
+    <ul>
+        <li>Gold star appears every 10 seconds</li>
+        <li>Worth +5 points (more than regular food)</li>
+        <li>Disappears after 5 seconds if not eaten</li>
+        <li>Adds +2 length to your snake</li>
+    </ul>
+
+    <h2>6. Timer & Warnings</h2>
+    <table>
+        <tr>
+            <th>Time Left</th>
+            <th>Display Color</th>
+        </tr>
+        <tr>
+            <td>>30 seconds</td>
+            <td style="color: #76FF03;">Green (normal)</td>
+        </tr>
+        <tr>
+            <td>10-30 seconds</td>
+            <td style="color: #FFEA00;">Yellow (warning)</td>
+        </tr>
+        <tr>
+            <td><10 seconds</td>
+            <td style="color: #FF1744;">Red (danger, pulsing)</td>
+        </tr>
+    </table>
+
+    <h2>7. Win Condition</h2>
+    <p>When the 2-minute timer ends, the player with the <strong>highest score</strong> wins! If tied, the first to reach that score wins.</p>
+
+    <h2>8. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> "TIME'S UP!" header</div>
+        <div class="step"><span class="step-number">Display:</span> Winner announcement with crown 🏆</div>
+        <div class="step"><span class="step-number">Display:</span> Final rankings (1st 🥇, 2nd 🥈, 3rd 🥉, 4th)</div>
+        <div class="step"><span class="step-number">Display:</span> Each player's final score</div>
+        <div class="step"><span class="step-number">Options:</span> "PLAY AGAIN" or "MENU"</div>
+    </div>
+
+    <h2>9. In-Game UI</h2>
+    <ul>
+        <li><strong>Timer:</strong> Countdown from 2:00</li>
+        <li><strong>Scoreboard:</strong> All players' scores, sorted by rank</li>
+        <li><strong>Leading indicator:</strong> Gold glow on highest score</li>
+        <li><strong>Dead indicator:</strong> Faded score when dead</li>
+        <li><strong>Pause button:</strong> Pause/Resume game</li>
+        <li><strong>Quit button:</strong> Return to player select</li>
+    </ul>
+
+    <div class="highlight">
+        <h3>Battle Strategies</h3>
+        <ul>
+            <li><strong>Aggressive:</strong> Hunt other snakes for +10 kill points</li>
+            <li><strong>Defensive:</strong> Focus on food, avoid confrontation</li>
+            <li><strong>Star Hunter:</strong> Prioritize special food for bonus points</li>
+            <li><strong>Stay short:</strong> Shorter snake = easier to maneuver</li>
+            <li><strong>Use invincibility:</strong> After respawn, 2 seconds of safety!</li>
+            <li><strong>Corner trap:</strong> Guide enemies into walls</li>
+        </ul>
+    </div>
+</body>
+</html>

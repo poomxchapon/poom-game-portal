@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temple Escape - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #ffd700; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #ffd700; padding-bottom: 10px; background: #1a1f3a; padding: 15px; border-radius: 10px 10px 0 0; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #ffd700; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #1a1f3a; color: #fff; padding: 20px; border-radius: 0 0 10px 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #1a1f3a; color: #ffd700; }
+        tr:nth-child(even) { background: #fffbeb; }
+        .flow-box { background: #fffbeb; border: 2px solid #ffd700; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #ffd700; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #b8860b; }
+        .danger { background: #fee2e2; padding: 15px; border-radius: 8px; border-left: 4px solid #ff0000; margin: 15px 0; }
+        .safe { background: #dcfce7; padding: 15px; border-radius: 8px; border-left: 4px solid #00ff00; margin: 15px 0; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .guardian-box { background: #1a1f3a; color: #fff; padding: 20px; border-radius: 10px; margin: 15px 0; text-align: center; }
+        .guardian-box .eye { font-size: 3em; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🏛️</div>
+    <h1>TEMPLE ESCAPE</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Stealth / Red Light Green Light</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 2 Players (Cooperative / Team)</p>
+        <p><strong>Grid Size:</strong> 6 x 10 (60 tiles)</p>
+        <p><strong>Levels:</strong> Infinite (progressive difficulty)</p>
+        <p><strong>Inspired by:</strong> Squid Game's Red Light Green Light</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Temple Escape is a thrilling stealth game inspired by "Red Light, Green Light." A mystical Guardian watches over the temple floor. Players must move to collect colored tiles while the Guardian's eye is closed, but freeze when it opens! Get caught moving = GAME OVER!</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (temple escape.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Read the instructions on start screen</div>
+        <div class="step"><span class="step-number">Step 3:</span> Click "🎮 เริ่มเกม" (Start Game) button</div>
+        <div class="step"><span class="step-number">Step 4:</span> Players spawn at their starting positions</div>
+        <div class="step"><span class="step-number">Step 5:</span> Guardian cycle begins - watch the eye!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <table>
+        <tr>
+            <th>Player</th>
+            <th>Color</th>
+            <th>Up</th>
+            <th>Down</th>
+            <th>Left</th>
+            <th>Right</th>
+        </tr>
+        <tr>
+            <td><strong>Player 1</strong></td>
+            <td style="color: #00ffff;">Cyan (ฟ้า)</td>
+            <td><strong>W</strong></td>
+            <td><strong>S</strong></td>
+            <td><strong>A</strong></td>
+            <td><strong>D</strong></td>
+        </tr>
+        <tr>
+            <td><strong>Player 2</strong></td>
+            <td style="color: #ff00ff;">Magenta (ชมพู)</td>
+            <td><strong>↑</strong></td>
+            <td><strong>↓</strong></td>
+            <td><strong>←</strong></td>
+            <td><strong>→</strong></td>
+        </tr>
+    </table>
+
+    <h2>4. The Guardian</h2>
+    <div class="guardian-box">
+        <div class="eye">👁️</div>
+        <h3 style="color: #ffd700; margin: 10px 0;">THE GUARDIAN</h3>
+        <p>The all-seeing eye watches over the temple...</p>
+    </div>
+
+    <h3>4.1 Guardian States</h3>
+    <div class="safe">
+        <h3>😴 GUARDIAN SLEEPING (Eye Closed)</h3>
+        <ul>
+            <li>Duration: ~5 seconds</li>
+            <li>Eye appears closed/thin line</li>
+            <li>Status shows "GUARDIAN SLEEPING" in GREEN</li>
+            <li><strong>YOU CAN MOVE!</strong></li>
+        </ul>
+    </div>
+    <div class="danger">
+        <h3>👁️ GUARDIAN WATCHING (Eye Open)</h3>
+        <ul>
+            <li>Duration: ~3 seconds</li>
+            <li>Eye is wide open with red pupil</li>
+            <li>Status shows "GUARDIAN WATCHING!" in RED</li>
+            <li><strong>DO NOT MOVE!</strong></li>
+            <li>Any movement = INSTANT GAME OVER</li>
+        </ul>
+    </div>
+
+    <h2>5. Gameplay Mechanics</h2>
+    <h3>5.1 Objective</h3>
+    <ul>
+        <li>Colored tiles appear on the grid</li>
+        <li>Move to the colored tiles to collect them</li>
+        <li>Collect ALL colored tiles to complete the level</li>
+        <li>Advance to the next level with more tiles!</li>
+    </ul>
+
+    <h3>5.2 Level Progression</h3>
+    <table>
+        <tr>
+            <th>Level</th>
+            <th>Target Tiles</th>
+        </tr>
+        <tr>
+            <td>Level 1</td>
+            <td>2 tiles</td>
+        </tr>
+        <tr>
+            <td>Level 2</td>
+            <td>3 tiles</td>
+        </tr>
+        <tr>
+            <td>Level 3</td>
+            <td>4 tiles</td>
+        </tr>
+        <tr>
+            <td>...</td>
+            <td>Level + 1 tiles (max 10)</td>
+        </tr>
+    </table>
+
+    <h3>5.3 Tile Colors</h3>
+    <ul>
+        <li>🔴 <strong>Red</strong></li>
+        <li>🟢 <strong>Green</strong></li>
+        <li>🔵 <strong>Blue</strong></li>
+        <li>🟡 <strong>Yellow</strong></li>
+    </ul>
+
+    <h3>5.4 Scoring</h3>
+    <table>
+        <tr>
+            <th>Action</th>
+            <th>Points</th>
+        </tr>
+        <tr>
+            <td>Collect a tile</td>
+            <td>+10 points</td>
+        </tr>
+        <tr>
+            <td>Complete a level</td>
+            <td>+50 × Level number</td>
+        </tr>
+    </table>
+
+    <h2>6. Win & Lose Conditions</h2>
+    <div class="highlight">
+        <h3>Win</h3>
+        <p>Keep advancing through levels as long as possible! Track your highest level achieved.</p>
+    </div>
+    <div class="danger">
+        <h3>GAME OVER</h3>
+        <p>Moving (pressing any movement key) while the Guardian is WATCHING = Instant death! 💀</p>
+    </div>
+
+    <h2>7. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> "💀 GAME OVER 💀"</div>
+        <div class="step"><span class="step-number">Display:</span> "Guardian จับได้! คุณขยับขณะที่ดวงตากำลังมอง!"</div>
+        <div class="step"><span class="step-number">Display:</span> "ไปได้ถึงด่าน: [Level Number]"</div>
+        <div class="step"><span class="step-number">Options:</span> "🔄 เริ่มใหม่" (Restart)</div>
+    </div>
+
+    <h2>8. UI Elements</h2>
+    <ul>
+        <li><strong>Current Level:</strong> Shows which level you're on</li>
+        <li><strong>Score:</strong> Your current points</li>
+        <li><strong>Highest Level:</strong> Your best record (saved locally)</li>
+        <li><strong>Target Colors:</strong> Shows which colors to collect</li>
+        <li><strong>Guardian Eye:</strong> Visual indicator of state</li>
+        <li><strong>Guardian Status:</strong> Text showing SLEEPING/WATCHING</li>
+    </ul>
+
+    <div class="highlight">
+        <h3>Survival Tips</h3>
+        <ul>
+            <li><strong>Watch the eye, not your player!</strong> - Know when to freeze</li>
+            <li><strong>Plan your route:</strong> Before Guardian sleeps, know where to go</li>
+            <li><strong>Move efficiently:</strong> Take the shortest path</li>
+            <li><strong>Don't panic:</strong> When eye opens, STOP IMMEDIATELY - don't try to finish a move</li>
+            <li><strong>Work together:</strong> 2 players can cover more ground faster</li>
+            <li><strong>Count the rhythm:</strong> Guardian cycles are consistent</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghost Buster - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #8b5cf6; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #8b5cf6; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #8b5cf6; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #8b5cf6; color: white; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        .flow-box { background: #f0f0f0; border: 2px solid #8b5cf6; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #8b5cf6; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #8b5cf6; }
+        .highlight { background: #f3e8ff; padding: 15px; border-radius: 8px; border-left: 4px solid #8b5cf6; margin: 15px 0; }
+        .warning { background: #fee2e2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 15px 0; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">👻</div>
+    <h1>GHOST BUSTER</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Cooperative Action</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 1-4 Players</p>
+        <p><strong>Grid Size:</strong> 10 x 6 (60 tiles)</p>
+        <p><strong>Duration:</strong> 1-5 minutes (configurable)</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Ghost Buster is a cooperative multiplayer game where players work together to capture ghosts that appear on the floor. Different ghost levels require different numbers of players to capture them simultaneously, promoting teamwork and communication.</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Ghost_buster.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select number of players (1-4)</div>
+        <div class="step"><span class="step-number">Step 3:</span> Select game duration:
+            <ul>
+                <li>1 minute (Quick)</li>
+                <li>2 minutes (Normal)</li>
+                <li>3 minutes (Extended)</li>
+                <li>5 minutes (Marathon)</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 4:</span> Click "START GAME" button</div>
+        <div class="step"><span class="step-number">Step 5:</span> Countdown 3-2-1 begins</div>
+        <div class="step"><span class="step-number">Step 6:</span> Game starts! Hunt the ghosts together!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <table>
+        <tr>
+            <th>Player</th>
+            <th>Color</th>
+            <th>Keyboard Controls</th>
+        </tr>
+        <tr>
+            <td>Player 1</td>
+            <td style="color: #00ffff;">Cyan</td>
+            <td><strong>W A S D</strong></td>
+        </tr>
+        <tr>
+            <td>Player 2</td>
+            <td style="color: #ff4444;">Red</td>
+            <td><strong>Arrow Keys (↑ ↓ ← →)</strong></td>
+        </tr>
+        <tr>
+            <td>Player 3</td>
+            <td style="color: #44ff44;">Green</td>
+            <td><strong>I J K L</strong></td>
+        </tr>
+        <tr>
+            <td>Player 4</td>
+            <td style="color: #ffff44;">Yellow</td>
+            <td><strong>Numpad 8 4 5 6</strong></td>
+        </tr>
+    </table>
+
+    <h2>4. Ghost System</h2>
+    <h3>4.1 Ghost Levels</h3>
+    <table>
+        <tr>
+            <th>Ghost Level</th>
+            <th>Appearance</th>
+            <th>Players Required</th>
+            <th>Points</th>
+        </tr>
+        <tr>
+            <td>Level 1 Ghost</td>
+            <td>Small, white ghost</td>
+            <td>1 player</td>
+            <td>10 points</td>
+        </tr>
+        <tr>
+            <td>Level 2 Ghost</td>
+            <td>Medium, blue ghost</td>
+            <td>2 players</td>
+            <td>25 points</td>
+        </tr>
+        <tr>
+            <td>Level 3 Ghost</td>
+            <td>Large, purple ghost</td>
+            <td>3 players</td>
+            <td>50 points</td>
+        </tr>
+        <tr>
+            <td>Level 4 Ghost</td>
+            <td>Giant, red boss ghost</td>
+            <td>4 players</td>
+            <td>100 points</td>
+        </tr>
+    </table>
+
+    <div class="warning">
+        <h3>Important Rule!</h3>
+        <p>To capture a ghost, the required number of players must be standing on the ghost's tile <strong>at the same time</strong>. Communicate with your team!</p>
+    </div>
+
+    <h2>5. How to Capture Ghosts</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">1.</span> A ghost appears on a random tile (with animation)</div>
+        <div class="step"><span class="step-number">2.</span> Check the ghost level (indicated by size/color)</div>
+        <div class="step"><span class="step-number">3.</span> Coordinate with teammates</div>
+        <div class="step"><span class="step-number">4.</span> All required players move to the ghost tile</div>
+        <div class="step"><span class="step-number">5.</span> Ghost captured! Points awarded to team</div>
+        <div class="step"><span class="step-number">6.</span> New ghost spawns after short delay</div>
+    </div>
+
+    <h2>6. Gameplay Mechanics</h2>
+    <h3>6.1 Ghost Spawning</h3>
+    <ul>
+        <li>Ghosts spawn at random locations on the grid</li>
+        <li>Higher level ghosts spawn less frequently</li>
+        <li>Ghost level is limited by number of players (can't spawn Level 4 ghost with only 2 players)</li>
+        <li>Ghosts have a time limit - they escape if not captured!</li>
+    </ul>
+
+    <h3>6.2 Team Score</h3>
+    <ul>
+        <li>All points are shared as team score</li>
+        <li>Work together to maximize points</li>
+        <li>Escaped ghosts = missed opportunity</li>
+    </ul>
+
+    <h2>7. Win Condition</h2>
+    <p>This is a cooperative game - the entire team wins or loses together. Try to achieve the highest score possible before time runs out!</p>
+
+    <h2>8. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> Total team score</div>
+        <div class="step"><span class="step-number">Display:</span> Ghosts captured breakdown by level</div>
+        <div class="step"><span class="step-number">Display:</span> Performance rating (based on score)</div>
+        <div class="step"><span class="step-number">Options:</span> "Play Again" or "Back to Menu"</div>
+    </div>
+
+    <div class="highlight">
+        <h3>Tips for Team Success</h3>
+        <ul>
+            <li>Communicate! Call out ghost locations and levels</li>
+            <li>Prioritize high-level ghosts for more points</li>
+            <li>Spread out to cover more ground</li>
+            <li>Move together when a big ghost appears</li>
+        </ul>
+    </div>
+</body>
+</html>

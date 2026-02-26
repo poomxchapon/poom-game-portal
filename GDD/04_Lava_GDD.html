@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lava - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #ef4444; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #ef4444; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #ef4444; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #fef2f2; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #ef4444; color: white; }
+        tr:nth-child(even) { background: #fef2f2; }
+        .flow-box { background: #fef2f2; border: 2px solid #ef4444; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #ef4444; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #ef4444; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .danger { background: #fee2e2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; margin: 15px 0; }
+        .safe { background: #dcfce7; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 15px 0; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🌋</div>
+    <h1>LAVA</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Survival / The Floor is Lava</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 1-2 Humans + AI Bots</p>
+        <p><strong>Grid Size:</strong> 10 x 6 (60 tiles)</p>
+        <p><strong>Duration:</strong> 90 seconds</p>
+        <p><strong>Lives:</strong> 3 per player</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Lava is an exciting survival game based on "The Floor is Lava" concept. Players must rush to safe zones when lava floods the floor. Stand on safe tiles or lose a life! The game supports both competitive (FFA) and team-based modes.</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Lava.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select game mode:
+            <ul>
+                <li><strong>Solo / FFA:</strong> Every player for themselves</li>
+                <li><strong>Team Mode:</strong> Red Team vs Blue Team</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 3:</span> Select number of human players (1-2)</div>
+        <div class="step"><span class="step-number">Step 4:</span> AI Bots fill remaining slots</div>
+        <div class="step"><span class="step-number">Step 5:</span> Click "START GAME" button</div>
+        <div class="step"><span class="step-number">Step 6:</span> Countdown 3-2-1 begins</div>
+        <div class="step"><span class="step-number">Step 7:</span> Game starts! Find the safe zones!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <table>
+        <tr>
+            <th>Player</th>
+            <th>Movement Keys</th>
+        </tr>
+        <tr>
+            <td>Player 1</td>
+            <td><strong>W A S D</strong> or <strong>Arrow Keys</strong></td>
+        </tr>
+        <tr>
+            <td>Player 2</td>
+            <td><strong>I J K L</strong></td>
+        </tr>
+    </table>
+
+    <h2>4. Game Mechanics</h2>
+    <h3>4.1 The Lava Cycle</h3>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Phase 1:</span> Safe zones appear randomly on the floor (highlighted tiles)</div>
+        <div class="step"><span class="step-number">Phase 2:</span> Warning countdown (3-5 seconds) - MOVE TO SAFE ZONES!</div>
+        <div class="step"><span class="step-number">Phase 3:</span> LAVA FLOOD! - Floor turns to lava except safe zones</div>
+        <div class="step"><span class="step-number">Phase 4:</span> Players not on safe zones lose 1 life</div>
+        <div class="step"><span class="step-number">Phase 5:</span> Lava recedes, new safe zones appear - Repeat!</div>
+    </div>
+
+    <h3>4.2 Safe Zones</h3>
+    <div class="safe">
+        <h3>Safe Zone Rules</h3>
+        <ul>
+            <li>Safe zones appear randomly before each lava wave</li>
+            <li>Number of safe zones decreases as game progresses</li>
+            <li>In Team Mode: Some zones are team-specific (Red or Blue)</li>
+            <li>Multiple players can share a safe zone (tight squeeze!)</li>
+        </ul>
+    </div>
+
+    <h3>4.3 Lives System</h3>
+    <table>
+        <tr>
+            <th>Event</th>
+            <th>Result</th>
+        </tr>
+        <tr>
+            <td>Standing on lava</td>
+            <td>Lose 1 life</td>
+        </tr>
+        <tr>
+            <td>Standing on safe zone</td>
+            <td>Safe! No life lost</td>
+        </tr>
+        <tr>
+            <td>0 lives remaining</td>
+            <td>ELIMINATED!</td>
+        </tr>
+    </table>
+
+    <div class="danger">
+        <h3>LAVA WARNING!</h3>
+        <p>When you see the screen flash red and hear the warning sound, you have only seconds to reach a safe zone! The floor is about to become LAVA!</p>
+    </div>
+
+    <h2>5. Game Modes</h2>
+    <h3>5.1 Solo / Free-For-All (FFA)</h3>
+    <ul>
+        <li>Every player fights for survival</li>
+        <li>Last player standing wins</li>
+        <li>All safe zones can be used by anyone</li>
+    </ul>
+
+    <h3>5.2 Team Mode (Red vs Blue)</h3>
+    <ul>
+        <li>Players divided into Red Team and Blue Team</li>
+        <li>Some safe zones are team-specific</li>
+        <li>Team with players remaining wins</li>
+        <li>Coordinate with teammates!</li>
+    </ul>
+
+    <h2>6. Win Conditions</h2>
+    <div class="highlight">
+        <h3>FFA Mode</h3>
+        <p>Be the last player with lives remaining, OR have the most lives when time runs out (90 seconds).</p>
+    </div>
+    <div class="highlight">
+        <h3>Team Mode</h3>
+        <p>Eliminate all players on the opposing team, OR have more total team lives when time runs out.</p>
+    </div>
+
+    <h2>7. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">FFA:</span> Winner announced with final lives count</div>
+        <div class="step"><span class="step-number">Team:</span> Winning team announced with team scores</div>
+        <div class="step"><span class="step-number">Stats:</span> Lava waves survived, close calls</div>
+        <div class="step"><span class="step-number">Options:</span> "Play Again" or "Back to Menu"</div>
+    </div>
+
+    <div class="highlight">
+        <h3>Survival Tips</h3>
+        <ul>
+            <li>Stay near the center - more escape routes!</li>
+            <li>Watch for safe zone patterns</li>
+            <li>Don't panic - you have a few seconds warning</li>
+            <li>In Team Mode: Help teammates reach safe zones</li>
+            <li>Sometimes blocking others from safe zones is a valid strategy!</li>
+        </ul>
+    </div>
+</body>
+</html>

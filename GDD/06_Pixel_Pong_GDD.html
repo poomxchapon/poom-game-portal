@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Pong - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #00f2ff; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #00f2ff; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #00f2ff; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #f0fdff; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #0a0a0f; color: #00f2ff; }
+        tr:nth-child(even) { background: #f0fdff; }
+        .flow-box { background: #f0fdff; border: 2px solid #00f2ff; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #00f2ff; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #00f2ff; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .team-blue { background: #e0f7ff; padding: 15px; border-radius: 8px; border-left: 4px solid #00f2ff; margin: 15px 0; }
+        .team-pink { background: #ffe0f0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff0077; margin: 15px 0; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🏓</div>
+    <h1>PIXEL PONG</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Classic Arcade / Pong</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 2 or 4 Players (Team vs Team)</p>
+        <p><strong>Grid Size:</strong> 10 x 6 (60 tiles)</p>
+        <p><strong>Target Score:</strong> 3, 5, 7, or 10 points</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Pixel Pong is a modern take on the classic Pong game, designed for LED floor gameplay. Two teams (Blue and Pink) compete to score goals by getting the ball past the opponent's paddle. The neon arcade aesthetic brings retro gaming to life!</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Pixel_pong.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select player mode:
+            <ul>
+                <li><strong>2 PLAYERS:</strong> 1 vs 1</li>
+                <li><strong>4 PLAYERS:</strong> 2 vs 2 (team mode)</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 3:</span> Select target score:
+            <ul>
+                <li>3 points (Quick game)</li>
+                <li>5 points (Standard)</li>
+                <li>7 points (Extended)</li>
+                <li>10 points (Marathon)</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 4:</span> Click "⚡ Start Match" button</div>
+        <div class="step"><span class="step-number">Step 5:</span> Countdown 3-2-1-GO! begins</div>
+        <div class="step"><span class="step-number">Step 6:</span> Game starts! Defend your goal!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <h3>3.1 Two Player Mode</h3>
+    <table>
+        <tr>
+            <th>Team</th>
+            <th>Player</th>
+            <th>Move Up</th>
+            <th>Move Down</th>
+        </tr>
+        <tr>
+            <td style="color: #00f2ff; font-weight: bold;">BLUE</td>
+            <td>Player 1</td>
+            <td><strong>W</strong></td>
+            <td><strong>S</strong></td>
+        </tr>
+        <tr>
+            <td style="color: #ff0077; font-weight: bold;">PINK</td>
+            <td>Player 2</td>
+            <td><strong>↑ (Arrow Up)</strong></td>
+            <td><strong>↓ (Arrow Down)</strong></td>
+        </tr>
+    </table>
+
+    <h3>3.2 Four Player Mode</h3>
+    <table>
+        <tr>
+            <th>Team</th>
+            <th>Player</th>
+            <th>Move Up</th>
+            <th>Move Down</th>
+        </tr>
+        <tr>
+            <td rowspan="2" style="color: #00f2ff; font-weight: bold;">BLUE</td>
+            <td>Player 1</td>
+            <td><strong>W</strong></td>
+            <td><strong>S</strong></td>
+        </tr>
+        <tr>
+            <td>Player 2</td>
+            <td><strong>R</strong></td>
+            <td><strong>F</strong></td>
+        </tr>
+        <tr>
+            <td rowspan="2" style="color: #ff0077; font-weight: bold;">PINK</td>
+            <td>Player 3</td>
+            <td><strong>U</strong></td>
+            <td><strong>J</strong></td>
+        </tr>
+        <tr>
+            <td>Player 4</td>
+            <td><strong>O</strong></td>
+            <td><strong>L</strong></td>
+        </tr>
+    </table>
+
+    <div class="highlight">
+        <p><strong>Pause Game:</strong> Press <strong>SPACE</strong> to pause/resume</p>
+    </div>
+
+    <h2>4. Game Mechanics</h2>
+    <h3>4.1 The Paddles</h3>
+    <div class="team-blue">
+        <h3>BLUE TEAM (Left Side)</h3>
+        <ul>
+            <li>Paddles positioned at column 0</li>
+            <li>Defends the left goal</li>
+            <li>In 4P mode: 2 paddles on left side</li>
+        </ul>
+    </div>
+    <div class="team-pink">
+        <h3>PINK TEAM (Right Side)</h3>
+        <ul>
+            <li>Paddles positioned at column 9</li>
+            <li>Defends the right goal</li>
+            <li>In 4P mode: 2 paddles on right side</li>
+        </ul>
+    </div>
+
+    <h3>4.2 The Ball</h3>
+    <ul>
+        <li>Ball starts at center of the field</li>
+        <li>Moves automatically in a diagonal direction</li>
+        <li>Bounces off top and bottom walls</li>
+        <li>Bounces off paddles when hit</li>
+        <li>Speed: Moves every 400ms</li>
+    </ul>
+
+    <h3>4.3 Scoring</h3>
+    <table>
+        <tr>
+            <th>Event</th>
+            <th>Result</th>
+        </tr>
+        <tr>
+            <td>Ball passes left edge</td>
+            <td><span style="color: #ff0077;">PINK</span> scores +1</td>
+        </tr>
+        <tr>
+            <td>Ball passes right edge</td>
+            <td><span style="color: #00f2ff;">BLUE</span> scores +1</td>
+        </tr>
+        <tr>
+            <td>Ball hits paddle</td>
+            <td>Ball bounces back</td>
+        </tr>
+    </table>
+
+    <h2>5. Win Condition</h2>
+    <p>First team to reach the <strong>target score</strong> wins the match!</p>
+
+    <h2>6. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> "🎉 [TEAM] WINS! 🎉"</div>
+        <div class="step"><span class="step-number">Display:</span> Final score (e.g., "5 - 2")</div>
+        <div class="step"><span class="step-number">Options:</span> "🔄 Play Again" button</div>
+    </div>
+
+    <h2>7. Visual Effects</h2>
+    <ul>
+        <li><strong>Ball:</strong> Yellow glowing orb with pulse animation</li>
+        <li><strong>Paddles:</strong> Team-colored with glow effect</li>
+        <li><strong>Score Flash:</strong> Numbers pulse when scored</li>
+        <li><strong>Goal Explosion:</strong> Burst effect when scoring</li>
+        <li><strong>Miss Effect:</strong> Red flash when ball is missed</li>
+        <li><strong>Scanline Effect:</strong> Retro CRT-style overlay</li>
+    </ul>
+
+    <div class="highlight">
+        <h3>Strategy Tips</h3>
+        <ul>
+            <li><strong>Anticipate:</strong> Watch the ball angle to predict where it's going</li>
+            <li><strong>Center position:</strong> Stay near the middle of your zone</li>
+            <li><strong>In 4P mode:</strong> Communicate with teammate - cover different areas</li>
+            <li><strong>Don't overreact:</strong> Small movements are often better</li>
+        </ul>
+    </div>
+</body>
+</html>

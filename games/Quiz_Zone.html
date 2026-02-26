@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quiz Zone: LED Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cols: 10;
+            --rows: 10;
+            --tile-size: min(4.8vw, 4.8vh, 52px);
+            --gap: 2px;
+            --neon: #a855f7;
+            --neon-dim: #7c3aed;
+            --neon-glow: rgba(168,85,247,0.4);
+            --cyan: #00e5ff;
+            --correct: #22c55e;
+            --wrong: #ef4444;
+            --warn: #f59e0b;
+            --gold: #fbbf24;
+            --bg: #07070f;
+            --panel: #0d0d1c;
+            --panel-border: #1e1e38;
+            --floor: #13132a;
+            --zone-a: #ef4444;
+            --zone-b: #3b82f6;
+            --zone-c: #f59e0b;
+            --zone-d: #22c55e;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background: var(--bg);
+            color: #e0e0e0;
+            overflow: hidden;
+            width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            user-select: none;
+            touch-action: none;
+        }
+        .font-arcade { font-family: 'Orbitron', sans-serif; }
+
+        /* ═══ Scanline ═══ */
+        .scanline {
+            position: fixed; inset: 0;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(168,85,247,0.008) 2px, rgba(168,85,247,0.008) 4px);
+            pointer-events: none; z-index: 999;
+        }
+
+        /* ═══ Overlays ═══ */
+        .overlay {
+            position: fixed; inset: 0;
+            background: rgba(4,4,12,0.96);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+            padding: 20px;
+        }
+        .overlay.hidden { display: none; }
+
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            letter-spacing: 6px;
+            color: var(--neon);
+            text-shadow: 0 0 30px var(--neon-glow);
+            line-height: 1;
+        }
+        .menu-sub {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 6px;
+            color: #444;
+        }
+        .menu-divider {
+            width: 100px; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon), transparent);
+            opacity: 0.3;
+            margin: 16px auto;
+        }
+
+        /* ═══ Buttons ═══ */
+        .btn-primary {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 0.8rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            color: #fff;
+            background: linear-gradient(135deg, var(--neon), var(--neon-dim));
+            border: none; padding: 14px 44px;
+            border-radius: 10px; cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-glow), 0 4px 16px rgba(0,0,0,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 30px var(--neon-glow); }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .btn-ghost {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700; font-size: 0.65rem;
+            letter-spacing: 2px; color: var(--neon);
+            background: rgba(168,85,247,0.08);
+            border: 1px solid rgba(168,85,247,0.25);
+            padding: 10px 28px; border-radius: 8px;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn-ghost:hover { background: rgba(168,85,247,0.15); }
+
+        /* ═══ Category Card ═══ */
+        .cat-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 22px;
+            background: var(--panel);
+            border: 1.5px solid var(--panel-border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%; max-width: 340px;
+        }
+        .cat-card:hover { border-color: rgba(168,85,247,0.5); background: rgba(168,85,247,0.04); }
+        .cat-card.selected { border-color: var(--neon); background: rgba(168,85,247,0.1); box-shadow: 0 0 12px var(--neon-glow); }
+        .cat-icon { font-size: 1.6rem; flex-shrink: 0; width: 36px; text-align: center; }
+        .cat-name { font-weight: 600; font-size: 1rem; }
+        .cat-desc { font-size: 0.7rem; color: #555; }
+
+        /* ═══ Difficulty ═══ */
+        .diff-btn {
+            padding: 8px 22px; border-radius: 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem; font-weight: 700;
+            letter-spacing: 2px; cursor: pointer;
+            border: 1.5px solid #2a2a40;
+            background: transparent; color: #555;
+            transition: all 0.2s;
+        }
+        .diff-btn:hover { border-color: #555; color: #888; }
+        .diff-btn.sel-easy { border-color: var(--correct); color: var(--correct); background: rgba(34,197,94,0.08); }
+        .diff-btn.sel-medium { border-color: var(--warn); color: var(--warn); background: rgba(245,158,11,0.08); }
+        .diff-btn.sel-hard { border-color: var(--wrong); color: var(--wrong); background: rgba(239,68,68,0.08); }
+
+        /* ═══ Tab Bar ═══ */
+        .tabs { display: flex; gap: 3px; background: #0a0a16; border-radius: 10px; padding: 3px; }
+        .tab {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; font-weight: 700;
+            letter-spacing: 2px;
+            padding: 8px 22px; border-radius: 8px;
+            border: none; cursor: pointer;
+            color: #444; background: transparent;
+            transition: all 0.2s;
+        }
+        .tab.active { color: #fff; background: var(--neon-dim); box-shadow: 0 0 10px var(--neon-glow); }
+        .tab:hover:not(.active) { color: #777; }
+
+        /* ═══ Game Layout ═══ */
+        #game-screen {
+            display: none;
+            width: 100vw; height: 100vh;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+        }
+
+        /* Top HUD */
+        .hud-top {
+            display: flex; align-items: center; gap: 16px;
+            width: 100%; max-width: 640px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .hud-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 12px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            font-size: 0.75rem;
+        }
+        .hud-chip .val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 0.9rem;
+        }
+
+        /* Question */
+        #question-bar {
+            width: 100%; max-width: 640px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 14px 20px;
+            text-align: center;
+            position: relative;
+        }
+        #question-text {
+            font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.4;
+        }
+        #question-num {
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.55rem; font-weight: 700;
+            letter-spacing: 2px;
+            color: var(--neon);
+            background: var(--bg);
+            padding: 2px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+        }
+
+        /* Timer bar */
+        .timer-track {
+            width: 100%; max-width: 640px;
+            height: 5px;
+            background: #1a1a30;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .timer-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon), var(--cyan));
+            border-radius: 3px;
+            transition: width 0.15s linear;
+        }
+        .timer-fill.urgent { background: linear-gradient(90deg, var(--wrong), #ff8800); }
+
+        /* Grid */
+        #grid-wrap {
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #game-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), var(--tile-size));
+            grid-template-rows: repeat(var(--rows), var(--tile-size));
+            gap: var(--gap);
+            padding: 4px;
+            background: #0a0a18;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(168,85,247,0.03), inset 0 0 40px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .tile {
+            width: 100%; height: 100%;
+            background-color: var(--floor);
+            border-radius: 2px;
+            transition: background-color 0.12s, box-shadow 0.12s;
+            cursor: pointer;
+        }
+
+        /* Zone colors */
+        .tile.za { background: var(--zone-a); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zb { background: var(--zone-b); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zc { background: var(--zone-c); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.zd { background: var(--zone-d); box-shadow: inset 0 0 8px rgba(0,0,0,0.3); }
+        .tile.za-dim { background: rgba(239,68,68,0.12); }
+        .tile.zb-dim { background: rgba(59,130,246,0.12); }
+        .tile.zc-dim { background: rgba(245,158,11,0.12); }
+        .tile.zd-dim { background: rgba(34,197,94,0.12); }
+        .tile.flash-ok { background: var(--correct) !important; box-shadow: 0 0 16px var(--correct) !important; }
+        .tile.flash-no { background: var(--wrong) !important; box-shadow: 0 0 16px var(--wrong) !important; }
+
+        /* Player */
+        #player {
+            position: absolute;
+            width: var(--tile-size); height: var(--tile-size);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #e9d5ff, #a855f7 60%, #6d28d9);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 0 14px var(--neon), 0 0 4px #fff;
+            z-index: 30;
+            transition: left 0.08s ease-out, top 0.08s ease-out;
+            pointer-events: none;
+        }
+        #player::after {
+            content: '';
+            width: 35%; height: 35%;
+            background: rgba(255,255,255,0.55);
+            border-radius: 50%;
+            position: absolute; top: 18%; left: 20%;
+            filter: blur(1px);
+        }
+
+        /* Zone labels on grid */
+        .zone-lbl {
+            position: absolute;
+            font-family: 'Kanit', sans-serif;
+            font-weight: 700;
+            font-size: clamp(11px, 1.8vw, 16px);
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6);
+            z-index: 25;
+            pointer-events: none;
+            text-align: center;
+            max-width: 45%;
+            line-height: 1.2;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+        .zone-lbl.lbl-a { background: rgba(239,68,68,0.7); }
+        .zone-lbl.lbl-b { background: rgba(59,130,246,0.7); }
+        .zone-lbl.lbl-c { background: rgba(245,158,11,0.7); }
+        .zone-lbl.lbl-d { background: rgba(34,197,94,0.7); }
+
+        /* Bottom answer buttons (always visible) */
+        .answer-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%; max-width: 640px;
+        }
+        .ans-btn {
+            padding: 10px 8px;
+            border-radius: 10px;
+            border: 2px solid;
+            cursor: pointer;
+            font-family: 'Kanit', sans-serif;
+            font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+            font-weight: 600;
+            color: #fff;
+            text-align: center;
+            transition: all 0.15s;
+            background: rgba(0,0,0,0.3);
+            min-height: 44px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ans-btn { position: relative; overflow: hidden; }
+        .ans-btn:hover { transform: scale(1.02); }
+        .ans-btn:active { transform: scale(0.97); }
+        .ans-btn.a { border-color: var(--zone-a); }
+        .ans-btn.b { border-color: var(--zone-b); }
+        .ans-btn.c { border-color: var(--zone-c); }
+        .ans-btn.d { border-color: var(--zone-d); }
+        .ans-btn.a:hover { background: rgba(239,68,68,0.15); }
+        .ans-btn.b:hover { background: rgba(59,130,246,0.15); }
+        .ans-btn.c:hover { background: rgba(245,158,11,0.15); }
+        .ans-btn.d:hover { background: rgba(34,197,94,0.15); }
+        .ans-btn.picked-ok { background: rgba(34,197,94,0.3) !important; border-color: var(--correct) !important; }
+        .ans-btn.picked-no { background: rgba(239,68,68,0.3) !important; border-color: var(--wrong) !important; }
+        .ans-btn.reveal-ok { background: rgba(34,197,94,0.3) !important; border-color: var(--correct) !important; box-shadow: 0 0 12px rgba(34,197,94,0.4); }
+        .ans-btn:disabled { cursor: default; opacity: 0.7; transform: none !important; }
+        .ans-btn.zone-active { animation: zonePulse 0.8s ease-in-out infinite; }
+        .ans-btn.zone-active.a { background: rgba(239,68,68,0.3) !important; box-shadow: 0 0 20px rgba(239,68,68,0.5); }
+        .ans-btn.zone-active.b { background: rgba(59,130,246,0.3) !important; box-shadow: 0 0 20px rgba(59,130,246,0.5); }
+        .ans-btn.zone-active.c { background: rgba(245,158,11,0.3) !important; box-shadow: 0 0 20px rgba(245,158,11,0.5); }
+        .ans-btn.zone-active.d { background: rgba(34,197,94,0.3) !important; box-shadow: 0 0 20px rgba(34,197,94,0.5); }
+        @keyframes zonePulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.04);} }
+        .ans-btn.zone-locking::after {
+            content: ''; position: absolute; bottom: 0; left: 0;
+            height: 4px; width: 0%; border-radius: 2px;
+            animation: lockProgress 3s linear forwards;
+        }
+        .ans-btn.zone-locking.a::after { background: var(--zone-a); box-shadow: 0 0 8px var(--zone-a); }
+        .ans-btn.zone-locking.b::after { background: var(--zone-b); box-shadow: 0 0 8px var(--zone-b); }
+        .ans-btn.zone-locking.c::after { background: var(--zone-c); box-shadow: 0 0 8px var(--zone-c); }
+        .ans-btn.zone-locking.d::after { background: var(--zone-d); box-shadow: 0 0 8px var(--zone-d); }
+        @keyframes lockProgress { from{width:0%;} to{width:100%;} }
+
+        /* Instruction hint */
+        .hint-bar {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.5rem;
+            letter-spacing: 2px;
+            color: #444;
+            text-align: center;
+        }
+
+        /* Countdown */
+        .countdown-num {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6rem; font-weight: 900;
+            color: var(--neon);
+            text-shadow: 0 0 60px var(--neon-glow);
+            animation: countIn 0.5s ease-out;
+        }
+        @keyframes countIn {
+            0% { transform: scale(1.6); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        /* ═══ AI Creator ═══ */
+        .creator-wrap {
+            max-width: 500px; width: 90vw;
+            text-align: left;
+        }
+        .input-field {
+            font-family: 'Kanit', sans-serif; font-size: 0.9rem;
+            background: #12122a;
+            border: 1px solid #2a2a45;
+            color: #e0e0e0;
+            padding: 10px 14px;
+            border-radius: 8px; width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus { border-color: var(--neon); }
+        .input-field::placeholder { color: #444; }
+        select.input-field {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+        .ai-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 2px 10px; border-radius: 12px;
+            font-size: 0.55rem; font-weight: 700; letter-spacing: 1px;
+            background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(59,130,246,0.15));
+            border: 1px solid rgba(168,85,247,0.3);
+            color: var(--neon);
+        }
+        .spinner { width: 36px; height: 36px; border: 3px solid #1a1a35; border-top-color: var(--neon); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .preview-item {
+            padding: 8px 12px;
+            background: #12122a;
+            border: 1px solid #1a1a35;
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+        .preview-q { font-weight: 600; margin-bottom: 4px; font-size: 0.8rem; }
+        .preview-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; font-size: 0.7rem; color: #666; }
+        .preview-choices .ok { color: var(--correct); font-weight: 600; }
+
+        /* ═══ Game Over ═══ */
+        .stat-box {
+            text-align: center; padding: 12px 16px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+        }
+        .stat-val {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900; font-size: 1.6rem;
+        }
+        .stat-label { font-size: 0.6rem; color: #555; margin-top: 2px; }
+
+        .result-row {
+            display: flex; gap: 8px; align-items: flex-start;
+            padding: 6px 0;
+            border-bottom: 1px solid #1a1a35;
+        }
+        .result-dot {
+            width: 18px; height: 18px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.55rem; font-weight: 700;
+        }
+
+        /* ═══ Responsive ═══ */
+        @media (max-height: 700px) {
+            :root { --tile-size: min(3.5vw, 3.5vh, 38px); }
+            #question-bar { padding: 10px 16px; }
+            .answer-btns { gap: 6px; }
+            .ans-btn { padding: 7px 6px; min-height: 38px; }
+        }
+        @media (max-width: 500px) {
+            :root { --tile-size: min(8vw, 5vh, 40px); }
+            .hud-chip { padding: 3px 8px; font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<!-- ═══ MAIN MENU ═══ -->
+<div id="menu" class="overlay">
+    <div style="text-align:center;max-width:400px;width:90vw;">
+        <div class="menu-sub">CSM-C1-006 &middot; FORTAL INTERACTIVE</div>
+        <div class="menu-title" style="margin:6px 0 2px;">QUIZ ZONE</div>
+        <div class="menu-sub">LED FLOOR QUIZ GAME</div>
+        <div class="menu-divider"></div>
+
+        <div class="tabs" style="margin:0 auto 20px;width:fit-content;">
+            <button class="tab active" data-tab="play" onclick="switchTab('play')">PLAY</button>
+            <button class="tab" data-tab="create" onclick="switchTab('create')">AI CREATE</button>
+        </div>
+
+        <!-- ── Play Tab ── -->
+        <div id="tab-play">
+            <div style="font-size:0.75rem;color:#666;margin-bottom:12px;">เลือกหมวดหมู่</div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:center;margin-bottom:18px;">
+                <div class="cat-card selected" data-cat="general" onclick="pickCat('general')">
+                    <div class="cat-icon">🌍</div>
+                    <div><div class="cat-name">ความรู้รอบตัว</div><div class="cat-desc">General Knowledge</div></div>
+                </div>
+                <div class="cat-card" data-cat="math" onclick="pickCat('math')">
+                    <div class="cat-icon">🔢</div>
+                    <div><div class="cat-name">คณิตศาสตร์</div><div class="cat-desc">Mathematics</div></div>
+                </div>
+                <div class="cat-card" data-cat="english" onclick="pickCat('english')">
+                    <div class="cat-icon">🔤</div>
+                    <div><div class="cat-name">ภาษาอังกฤษ</div><div class="cat-desc">English Language</div></div>
+                </div>
+                <div class="cat-card" data-cat="custom" id="custom-card" style="display:none;" onclick="pickCat('custom')">
+                    <div class="cat-icon">✨</div>
+                    <div><div class="cat-name" id="custom-name">AI Generated</div><div class="cat-desc">Custom Quiz</div></div>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px;">
+                <button class="diff-btn sel-easy" data-d="easy" onclick="pickDiff('easy')">EASY</button>
+                <button class="diff-btn" data-d="medium" onclick="pickDiff('medium')">MEDIUM</button>
+                <button class="diff-btn" data-d="hard" onclick="pickDiff('hard')">HARD</button>
+            </div>
+
+            <button class="btn-primary" onclick="beginGame()">START QUIZ</button>
+            <div style="font-size:0.6rem;color:#333;margin-top:10px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
+                WASD / ARROWS &middot; ยืนในโซน = ตอบเมื่อหมดเวลา &middot; 10 QUESTIONS
+            </div>
+        </div>
+
+        <!-- ── AI Create Tab ── -->
+        <div id="tab-create" style="display:none;">
+            <div class="creator-wrap" style="margin:0 auto;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                    <span class="ai-badge">AI POWERED</span>
+                    <span style="font-size:0.7rem;color:#555;">Gemini สร้างคำถามอัตโนมัติ</span>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:0.7rem;color:#555;display:block;margin-bottom:4px;">หมวดหมู่</label>
+                    <select class="input-field" id="ai-cat" onchange="document.getElementById('ai-topic-wrap').style.display=this.value==='custom'?'block':'none'">
+                        <option value="general">ความรู้รอบตัว</option>
+                        <option value="math">คณิตศาสตร์</option>
+                        <option value="english">ภาษาอังกฤษ</option>
+                        <option value="science">วิทยาศาสตร์</option>
+                        <option value="history">ประวัติศาสตร์</option>
+                        <option value="geography">ภูมิศาสตร์</option>
+                        <option value="custom">กำหนดเอง...</option>
+                    </select>
+                </div>
+                <div id="ai-topic-wrap" style="display:none;margin-bottom:12px;">
+                    <label style="font-size:0.7rem;color:#555;display:block;margin-bottom:4px;">หัวข้อ</label>
+                    <input class="input-field" id="ai-topic" placeholder="เช่น สัตว์ทะเล, Marvel, อาหารไทย">
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:12px;">
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;color:#555;display:block;margin-bottom:4px;">ความยาก</label>
+                        <select class="input-field" id="ai-diff"><option value="easy">ง่าย</option><option value="medium" selected>ปานกลาง</option><option value="hard">ยาก</option></select>
+                    </div>
+                    <div style="flex:1">
+                        <label style="font-size:0.7rem;color:#555;display:block;margin-bottom:4px;">จำนวนข้อ</label>
+                        <select class="input-field" id="ai-num"><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option></select>
+                    </div>
+                </div>
+
+                <button class="btn-primary" style="width:100%;font-size:0.7rem;padding:12px;" onclick="aiGenerate()" id="btn-gen">GENERATE QUIZ</button>
+
+                <div id="ai-loading" style="display:none;text-align:center;padding:28px 0;">
+                    <div class="spinner" style="margin:0 auto 10px;"></div>
+                    <div style="font-size:0.8rem;color:#666;">AI กำลังสร้างคำถาม...</div>
+                </div>
+
+                <div id="ai-preview" style="display:none;margin-top:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-size:0.65rem;color:#555;font-family:'Orbitron',sans-serif;letter-spacing:2px;">PREVIEW</span>
+                        <span id="ai-count" style="font-size:0.65rem;color:#555;"></span>
+                    </div>
+                    <div id="ai-list" style="max-height:220px;overflow-y:auto;"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button class="btn-primary" style="flex:1;font-size:0.65rem;padding:10px;" onclick="playAI()">PLAY NOW</button>
+                        <button class="btn-ghost" style="flex:1;font-size:0.6rem;padding:10px;" onclick="exportJSON()">EXPORT JSON</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ COUNTDOWN ═══ -->
+<div id="countdown" class="overlay hidden">
+    <div id="count-num" class="countdown-num"></div>
+</div>
+
+<!-- ═══ GAME OVER ═══ -->
+<div id="gameover" class="overlay hidden">
+    <div style="text-align:center;max-width:420px;width:90vw;">
+        <div class="menu-sub" style="margin-bottom:4px;">GAME OVER</div>
+        <div id="final-score" class="menu-title" style="font-size:2.5rem;"></div>
+        <div class="menu-sub" style="margin-top:2px;">POINTS</div>
+        <div class="menu-divider"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div class="stat-box"><div id="s-ok" class="stat-val" style="color:var(--correct);">0</div><div class="stat-label">CORRECT</div></div>
+            <div class="stat-box"><div id="s-no" class="stat-val" style="color:var(--wrong);">0</div><div class="stat-label">WRONG</div></div>
+            <div class="stat-box"><div id="s-acc" class="stat-val" style="color:var(--neon);">0%</div><div class="stat-label">ACCURACY</div></div>
+        </div>
+
+        <div id="results-list" style="text-align:left;max-height:180px;overflow-y:auto;margin-bottom:16px;"></div>
+
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn-primary" onclick="beginGame()" style="font-size:0.7rem;padding:12px 28px;">RETRY</button>
+            <button class="btn-ghost" onclick="goMenu()">MENU</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ GAME SCREEN ═══ -->
+<div id="game-screen">
+    <!-- HUD -->
+    <div class="hud-top">
+        <div class="hud-chip"><span style="color:#888;">Q</span> <span id="h-qnum" class="val" style="color:var(--neon);">1</span><span style="color:#444;font-size:0.7rem;">/10</span></div>
+        <div class="hud-chip"><span style="color:#888;">Score</span> <span id="h-score" class="val" style="color:var(--gold);">0</span></div>
+        <div class="hud-chip"><span style="color:#888;">Time</span> <span id="h-time" class="val" style="color:var(--cyan);">10</span></div>
+        <div class="hud-chip"><span style="color:var(--correct);" id="h-ok">0</span><span style="color:#333;">/</span><span style="color:var(--wrong);" id="h-no">0</span></div>
+    </div>
+
+    <!-- Question -->
+    <div id="question-bar">
+        <div id="question-num">Q1 / 10</div>
+        <div id="question-text">—</div>
+    </div>
+
+    <!-- Answer buttons right below question (click = teleport to zone) -->
+    <div class="answer-btns" id="ans-btns">
+        <button class="ans-btn a" data-i="0" onclick="goToZone(0)"></button>
+        <button class="ans-btn b" data-i="1" onclick="goToZone(1)"></button>
+        <button class="ans-btn c" data-i="2" onclick="goToZone(2)"></button>
+        <button class="ans-btn d" data-i="3" onclick="goToZone(3)"></button>
+    </div>
+
+    <!-- Timer -->
+    <div class="timer-track"><div id="timer-fill" class="timer-fill"></div></div>
+
+    <!-- Grid -->
+    <div id="grid-wrap">
+        <div id="game-grid"></div>
+        <div id="player"></div>
+    </div>
+
+    <div class="hint-bar" id="hint-bar">เดินไปยืนในโซนคำตอบ &middot; WASD / ARROWS &middot; หมดเวลา = ยืนยันคำตอบ</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  QUIZ ZONE — Engine v2
+// ═══════════════════════════════════════════
+const COLS = 10, ROWS = 10, QTIME = 10;
+const ZCOLORS = ['za','zb','zc','zd'];
+const ZDIM = ['za-dim','zb-dim','zc-dim','zd-dim'];
+
+const G = {
+    cat: 'general', diff: 'easy', qs: [], qi: 0,
+    score: 0, ok: 0, no: 0, results: [],
+    pr: 5, pc: 5, timer: QTIME, tiv: null,
+    answered: false, active: false, aiQuiz: null,
+    currentZone: -1, lockTimer: null,
+};
+
+// ─── Quiz Banks ───
+const BANK={general:{easy:[
+{q:"ดวงอาทิตย์ขึ้นทางทิศใด?",c:["ทิศเหนือ","ทิศตะวันออก","ทิศใต้","ทิศตะวันตก"],a:1},
+{q:"น้ำเดือดที่กี่องศาเซลเซียส?",c:["50°C","75°C","100°C","200°C"],a:2},
+{q:"สีอะไรได้จากผสมแดง+เหลือง?",c:["สีม่วง","สีเขียว","สีส้ม","สีน้ำเงิน"],a:2},
+{q:"เมืองหลวงของไทยคือ?",c:["เชียงใหม่","กรุงเทพฯ","ภูเก็ต","พัทยา"],a:1},
+{q:"1 ปี มีกี่เดือน?",c:["10","11","12","13"],a:2},
+{q:"สัตว์ใดเลี้ยงลูกด้วยนม?",c:["งู","ปลา","แมว","กบ"],a:2},
+{q:"ดาวเคราะห์ใดใกล้ดวงอาทิตย์สุด?",c:["โลก","ดาวศุกร์","ดาวพุธ","ดาวอังคาร"],a:2},
+{q:"รุ้งกินน้ำมีกี่สี?",c:["5","6","7","8"],a:2},
+{q:"ประเทศใดมีคนมากสุดในโลก?",c:["อเมริกา","จีน","อินเดีย","รัสเซีย"],a:2},
+{q:"สัตว์ใดบินได้?",c:["ปลา","กบ","นก","หมู"],a:2},
+],medium:[
+{q:"แม่น้ำยาวที่สุดในโลกคือ?",c:["ไนล์","อเมซอน","แยงซี","มิสซิสซิปปี"],a:0},
+{q:"ธาตุสัญลักษณ์ O คือ?",c:["ทองคำ","ออกซิเจน","เหล็ก","ไฮโดรเจน"],a:1},
+{q:"ใครเขียนทฤษฎีสัมพัทธภาพ?",c:["นิวตัน","ไอน์สไตน์","ฮอว์คิง","เทสลา"],a:1},
+{q:"มหาสมุทรใดใหญ่สุด?",c:["แอตแลนติก","แปซิฟิก","อินเดีย","อาร์กติก"],a:1},
+{q:"DNA ย่อมาจาก?",c:["Deoxyribose Acid","Deoxyribonucleic Acid","Dual Nucleic Acid","Dynamic Nucleus Acid"],a:1},
+{q:"ดาวเคราะห์ใดมีวงแหวน?",c:["ดาวอังคาร","ดาวพฤหัส","ดาวเสาร์","ดาวยูเรนัส"],a:2},
+{q:"ภูเขาเอเวอเรสต์อยู่ทวีปใด?",c:["อเมริกาใต้","ยุโรป","แอฟริกา","เอเชีย"],a:3},
+{q:"ไวรัสโคโรนาค้นพบที่เมือง?",c:["ปักกิ่ง","อู่ฮั่น","เซี่ยงไฮ้","กว่างโจว"],a:1},
+{q:"กำแพงเมืองจีนอยู่ประเทศ?",c:["ญี่ปุ่น","เกาหลี","จีน","มองโกเลีย"],a:2},
+{q:"ใครวาด Mona Lisa?",c:["ปิกัสโซ","ดาวินชี","แวนโก๊ะ","โมเน่ต์"],a:1},
+],hard:[
+{q:"ประเทศใดมีเขตเวลามากสุด?",c:["รัสเซีย","สหรัฐ","จีน","ฝรั่งเศส"],a:3},
+{q:"ธาตุเลขอะตอม 79 คือ?",c:["เงิน","ทองคำ","แพลทินัม","ทองแดง"],a:1},
+{q:"ทะเลสาบลึกสุดในโลก?",c:["วิกตอเรีย","ไบคาล","สุพีเรีย","แทนกันยิกา"],a:1},
+{q:"มนุษย์เหยียบดวงจันทร์ปี ค.ศ.?",c:["1965","1967","1969","1971"],a:2},
+{q:"สกุลเงิน Baht ของประเทศ?",c:["เวียดนาม","กัมพูชา","ไทย","ลาว"],a:2},
+{q:"ใครก่อตั้ง Tesla?",c:["Bezos","Musk","Gates","Zuckerberg"],a:1},
+{q:"แสงเดินทางเร็วประมาณ?",c:["300 km/s","3,000 km/s","300,000 km/s","3M km/s"],a:2},
+{q:"ภาษา native speakers มากสุด?",c:["อังกฤษ","จีนกลาง","สเปน","ฮินดี"],a:1},
+{q:"สงครามโลก 2 จบปี?",c:["1943","1944","1945","1946"],a:2},
+{q:"ทวีปเล็กสุดคือ?",c:["ยุโรป","ออสเตรเลีย","แอนตาร์กติกา","อเมริกาใต้"],a:1},
+]},math:{easy:[
+{q:"5 + 3 = ?",c:["6","7","8","9"],a:2},
+{q:"10 - 4 = ?",c:["5","6","7","8"],a:1},
+{q:"3 × 4 = ?",c:["7","10","12","15"],a:2},
+{q:"20 ÷ 5 = ?",c:["3","4","5","6"],a:1},
+{q:"9 × 9 = ?",c:["72","81","90","99"],a:1},
+{q:"100 - 50 = ?",c:["40","45","50","55"],a:2},
+{q:"7 + 8 = ?",c:["13","14","15","16"],a:2},
+{q:"6 × 7 = ?",c:["36","40","42","48"],a:2},
+{q:"15 ÷ 3 = ?",c:["3","4","5","6"],a:2},
+{q:"1 + 1 + 1 = ?",c:["1","2","3","4"],a:2},
+],medium:[
+{q:"√144 = ?",c:["10","11","12","14"],a:2},
+{q:"2⁵ = ?",c:["16","25","32","64"],a:2},
+{q:"15% ของ 200 = ?",c:["20","25","30","35"],a:2},
+{q:"x² = 49, x = ?",c:["±5","±6","±7","±8"],a:2},
+{q:"สามเหลี่ยมมุมรวมกี่องศา?",c:["90°","180°","270°","360°"],a:1},
+{q:"3! = ?",c:["3","6","9","12"],a:1},
+{q:"จำนวนเฉพาะน้อยสุดคือ?",c:["0","1","2","3"],a:2},
+{q:"1/4 + 1/4 = ?",c:["1/8","1/2","2/4","1/4"],a:1},
+{q:"พื้นที่วงกลม = ?",c:["πr","2πr","πr²","2πr²"],a:2},
+{q:"log₁₀(1000) = ?",c:["2","3","4","10"],a:1},
+],hard:[
+{q:"∫ 2x dx = ?",c:["x","x²","x²+C","2x²+C"],a:2},
+{q:"sin(90°) = ?",c:["0","0.5","1","-1"],a:2},
+{q:"Fibonacci: 1,1,2,3,5,8,?",c:["10","11","12","13"],a:3},
+{q:"7! = ?",c:["720","5040","40320","362880"],a:1},
+{q:"e ≈ ?",c:["2.414","2.618","2.718","3.141"],a:2},
+{q:"π ทศนิยม 2 ตำแหน่ง?",c:["3.12","3.14","3.16","3.18"],a:1},
+{q:"lim(x→0) sin(x)/x = ?",c:["0","1","∞","ไม่มีค่า"],a:1},
+{q:"2¹⁰ = ?",c:["512","1000","1024","2048"],a:2},
+{q:"1+2+3+...+100 = ?",c:["4950","5000","5050","5100"],a:2},
+{q:"cos(0°) = ?",c:["0","0.5","1","-1"],a:2},
+]},english:{easy:[
+{q:"Opposite of 'hot'?",c:["warm","cool","cold","freezing"],a:2},
+{q:"'Cat' แปลว่า?",c:["หมา","แมว","นก","ปลา"],a:1},
+{q:"Which is a color?",c:["Table","Happy","Blue","Run"],a:2},
+{q:"English has how many letters?",c:["24","25","26","27"],a:2},
+{q:"I ___ a student.",c:["is","am","are","be"],a:1},
+{q:"Plural of 'child'?",c:["childs","childes","children","childrens"],a:2},
+{q:"'Apple' คือผลไม้?",c:["กล้วย","ส้ม","แอปเปิ้ล","มะม่วง"],a:2},
+{q:"Day after Monday?",c:["Sunday","Wednesday","Tuesday","Thursday"],a:2},
+{q:"'Thank you' แปลว่า?",c:["สวัสดี","ขอบคุณ","ขอโทษ","ลาก่อน"],a:1},
+{q:"'Good morning' ใช้ตอน?",c:["เช้า","เที่ยง","เย็น","ดึก"],a:0},
+],medium:[
+{q:"Past tense of 'go'?",c:["goed","going","gone","went"],a:3},
+{q:"Which is an adjective?",c:["Run","Beautiful","Quickly","Jump"],a:1},
+{q:"She ___ to school daily.",c:["go","goes","going","gone"],a:1},
+{q:"'Break a leg' means?",c:["ขาหัก","โชคดี","ระวัง","ลุกขึ้น"],a:1},
+{q:"Synonym of 'happy'?",c:["Sad","Angry","Joyful","Tired"],a:2},
+{q:"Which is correct?",c:["He don't like","He doesn't likes","He doesn't like","He not like"],a:2},
+{q:"'Enormous' means?",c:["เล็กมาก","ใหญ่มาก","เร็วมาก","ช้ามาก"],a:1},
+{q:"I have ___ been to Japan.",c:["ever","never","always","often"],a:1},
+{q:"Comparative: big →?",c:["biger","more big","biggest","bigger"],a:3},
+{q:"'Piece of cake' means?",c:["ชิ้นเค้ก","ง่ายมาก","อร่อย","แพง"],a:1},
+],hard:[
+{q:"Subjunctive mood?",c:["I was there","If I were you","I am going","She is here"],a:1},
+{q:"'Serendipity' means?",c:["ความเศร้า","โชคดีบังเอิญ","ความกล้า","ความอิจฉา"],a:1},
+{q:"Past participle of 'swim'?",c:["swimmed","swam","swum","swimming"],a:2},
+{q:"'Ephemeral' ≈ ?",c:["Eternal","Temporary","Massive","Invisible"],a:1},
+{q:"Oxford comma?",c:["cats dogs and fish","cats, dogs, and fish","cats, dogs and fish","cats dogs, fish"],a:1},
+{q:"'Ubiquitous' means?",c:["หายาก","มีอยู่ทั่วไป","ลึกลับ","โบราณ"],a:1},
+{q:"Passive: 'Cake ___ by Mary.'",c:["baked","was baked","is baking","bakes"],a:1},
+{q:"'Albeit' ≈ ?",c:["Because","Although","Therefore","However"],a:1},
+{q:"3rd conditional: 'If known, I ___'",c:["will go","would go","would have gone","had gone"],a:2},
+{q:"Which is a gerund?",c:["To swim","Swimming","Swam","Swim"],a:1},
+]}};
+
+// ─── Zones (10x10 grid, 4 quadrants) ───
+function zones(){
+    return [
+        {sr:1,er:4,sc:0,ec:4},  // A = top-left
+        {sr:1,er:4,sc:5,ec:9},  // B = top-right
+        {sr:6,er:9,sc:0,ec:4},  // C = bottom-left
+        {sr:6,er:9,sc:5,ec:9},  // D = bottom-right
+    ];
+}
+
+// ─── Tile pixel helpers ───
+function tilePixel(){
+    // Measure actual rendered tile size
+    const t = document.querySelector('.tile');
+    if(!t) return {s:30,g:2,p:4};
+    const rect = t.getBoundingClientRect();
+    return {s:rect.width,g:2,p:4};
+}
+
+function idx(r,c){return r*COLS+c;}
+
+// ─── Build Grid ───
+function buildGrid(){
+    const g=document.getElementById('game-grid');
+    g.innerHTML='';
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const d=document.createElement('div');
+        d.className='tile';
+        d.dataset.r=r;d.dataset.c=c;
+        d.addEventListener('click',()=>{G.pr=r;G.pc=c;moveP();checkZone();});
+        g.appendChild(d);
+    }
+}
+
+function moveP(){
+    G.pr=Math.max(0,Math.min(ROWS-1,G.pr));
+    G.pc=Math.max(0,Math.min(COLS-1,G.pc));
+    const p=document.getElementById('player');
+    const grid=document.getElementById('game-grid');
+    const tile=document.querySelector(`.tile[data-r="${G.pr}"][data-c="${G.pc}"]`);
+    if(!tile) return;
+    p.style.width=tile.offsetWidth+'px';
+    p.style.height=tile.offsetHeight+'px';
+    p.style.left=(grid.offsetLeft+tile.offsetLeft)+'px';
+    p.style.top=(grid.offsetTop+tile.offsetTop)+'px';
+}
+
+// ─── Display Zones ───
+function showZones(choices){
+    const tiles=document.querySelectorAll('.tile');
+    tiles.forEach(t=>t.className='tile');
+
+    const zz=zones();
+    zz.forEach((z,i)=>{
+        if(i>=choices.length) return;
+        for(let r=z.sr;r<=z.er;r++) for(let c=z.sc;c<=z.ec;c++){
+            tiles[idx(r,c)].classList.add(ZDIM[i]);
+        }
+        // Brighter center 2x2
+        const cr=Math.floor((z.sr+z.er)/2), cc=Math.floor((z.sc+z.ec)/2);
+        for(let r=cr;r<=cr+1;r++) for(let c=cc;c<=cc+1;c++){
+            if(r<ROWS&&c<COLS){ tiles[idx(r,c)].classList.remove(ZDIM[i]); tiles[idx(r,c)].classList.add(ZCOLORS[i]); }
+        }
+    });
+
+    // Update answer buttons
+    const btns=document.querySelectorAll('.ans-btn');
+    btns.forEach((b,i)=>{
+        b.textContent=choices[i]||'';
+        b.disabled=false;
+        b.className='ans-btn '+['a','b','c','d'][i];
+        b.style.display=i<choices.length?'flex':'none';
+    });
+
+    // Zone labels on grid
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    setTimeout(()=>{
+        const grid=document.getElementById('game-grid');
+        const wrap=document.getElementById('grid-wrap');
+        zz.forEach((z,i)=>{
+            if(i>=choices.length) return;
+            const cr=Math.floor((z.sr+z.er)/2), cc=Math.floor((z.sc+z.ec)/2);
+            const refTile=document.querySelector(`.tile[data-r="${cr}"][data-c="${cc}"]`);
+            if(!refTile) return;
+            const lbl=document.createElement('div');
+            lbl.className='zone-lbl lbl-'+['a','b','c','d'][i];
+            lbl.textContent=choices[i];
+            lbl.style.left=(grid.offsetLeft+refTile.offsetLeft)+'px';
+            lbl.style.top=(grid.offsetTop+refTile.offsetTop)+'px';
+            wrap.appendChild(lbl);
+        });
+    },60);
+}
+
+function checkZone(){
+    if(!G.active||G.answered) return;
+    const zz=zones();
+    let found=-1;
+    for(let i=0;i<zz.length;i++){
+        const z=zz[i];
+        if(G.pr>=z.sr&&G.pr<=z.er&&G.pc>=z.sc&&G.pc<=z.ec){found=i;break;}
+    }
+    if(found!==G.currentZone){
+        // Zone changed — reset lock timer
+        clearTimeout(G.lockTimer); G.lockTimer=null;
+        G.currentZone=found;
+        updateZoneIndicator();
+        if(found>=0){
+            // Start 3s lock-in: stand still = confirm
+            G.lockTimer=setTimeout(()=>{
+                if(!G.answered&&G.active&&G.currentZone>=0){
+                    clearInterval(G.tiv);
+                    submitAnswer(G.currentZone);
+                }
+            },3000);
+        }
+    }
+}
+
+function updateZoneIndicator(){
+    const btns=document.querySelectorAll('.ans-btn');
+    btns.forEach((b,i)=>{
+        const isActive=i===G.currentZone;
+        b.classList.toggle('zone-active',isActive);
+        if(!isActive) b.classList.remove('zone-locking');
+    });
+    if(G.currentZone>=0){
+        const btn=btns[G.currentZone];
+        if(!btn.classList.contains('zone-locking')){
+            void btn.offsetWidth; // force reflow to restart animation
+            btn.classList.add('zone-locking');
+        }
+    }
+    const hint=document.getElementById('hint-bar');
+    if(G.currentZone>=0){
+        const labels=['A','B','C','D'];
+        hint.textContent='คำตอบ: '+labels[G.currentZone]+' — ยืนค้าง 3 วิ เพื่อยืนยัน';
+        hint.style.color='var(--neon)';
+    } else {
+        hint.textContent='เดินไปยืนในโซนคำตอบ · WASD / ARROWS';
+        hint.style.color='';
+    }
+}
+
+// ─── Teleport to zone (button/keyboard shortcut) ───
+function goToZone(i){
+    if(!G.active||G.answered) return;
+    const zz=zones();
+    if(i>=zz.length) return;
+    const z=zz[i];
+    G.pr=Math.floor((z.sr+z.er)/2);
+    G.pc=Math.floor((z.sc+z.ec)/2);
+    moveP();
+    checkZone();
+}
+
+// ─── Submit Answer (called when timer ends) ───
+function submitAnswer(ci){
+    G.answered=true;
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+    const q=G.qs[G.qi];
+    const ok=ci===q.a;
+    const tiles=document.querySelectorAll('.tile');
+    const zz=zones();
+    const btns=document.querySelectorAll('.ans-btn');
+    btns.forEach(b=>{b.disabled=true;b.classList.remove('zone-active');});
+
+    if(ok){
+        G.score+=10; G.ok++;
+        G.results.push({q:q.q,ok:true,ans:q.c[q.a]});
+        const z=zz[ci];
+        for(let r=z.sr;r<=z.er;r++) for(let c=z.sc;c<=z.ec;c++) tiles[idx(r,c)].classList.add('flash-ok');
+        btns[ci].classList.add('picked-ok');
+    } else {
+        G.no++;
+        G.results.push({q:q.q,ok:false,ans:q.c[q.a],pick:q.c[ci]});
+        if(ci>=0 && ci<4){
+            const wz=zz[ci];
+            for(let r=wz.sr;r<=wz.er;r++) for(let c=wz.sc;c<=wz.ec;c++) tiles[idx(r,c)].classList.add('flash-no');
+            btns[ci].classList.add('picked-no');
+        }
+        const oz=zz[q.a];
+        for(let r=oz.sr;r<=oz.er;r++) for(let c=oz.sc;c<=oz.ec;c++) tiles[idx(r,c)].classList.add('flash-ok');
+        btns[q.a].classList.add('reveal-ok');
+    }
+    hud();
+    setTimeout(()=>nextQ(),1400);
+}
+
+function timeUp(){
+    if(G.answered) return;
+    clearInterval(G.tiv);
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+
+    // Player is in a zone → that's their answer
+    if(G.currentZone>=0){
+        submitAnswer(G.currentZone);
+        return;
+    }
+
+    // Not in any zone → no answer
+    G.answered=true;
+    G.no++;
+    const q=G.qs[G.qi];
+    G.results.push({q:q.q,ok:false,ans:q.c[q.a],pick:'ไม่ได้ตอบ'});
+    const tiles=document.querySelectorAll('.tile');
+    const zz=zones();
+    const oz=zz[q.a];
+    for(let r=oz.sr;r<=oz.er;r++) for(let c=oz.sc;c<=oz.ec;c++) tiles[idx(r,c)].classList.add('flash-ok');
+    const btns=document.querySelectorAll('.ans-btn');
+    btns.forEach(b=>{b.disabled=true;b.classList.remove('zone-active');});
+    btns[q.a].classList.add('reveal-ok');
+    document.getElementById('hint-bar').textContent='ไม่ได้เลือกคำตอบ — คำตอบที่ถูก: '+q.c[q.a];
+    document.getElementById('hint-bar').style.color='var(--wrong)';
+    hud();
+    setTimeout(()=>nextQ(),1400);
+}
+
+// ─── Question Flow ───
+function nextQ(){
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    G.qi++;
+    if(G.qi>=G.qs.length){endGame();return;}
+    showQ();
+}
+
+function showQ(){
+    const q=G.qs[G.qi];
+    G.answered=false;
+    G.timer=QTIME;
+    G.pr=5;G.pc=5;
+    G.currentZone=-1;
+    clearTimeout(G.lockTimer); G.lockTimer=null;
+
+    document.getElementById('question-text').textContent=q.q;
+    document.getElementById('question-num').textContent=`Q${G.qi+1} / ${G.qs.length}`;
+    document.getElementById('h-qnum').textContent=G.qi+1;
+
+    showZones(q.c);
+    moveP();
+    hud();
+    startTimer();
+}
+
+function startTimer(){
+    clearInterval(G.tiv);
+    G.timer=QTIME;
+    updTimer();
+    G.tiv=setInterval(()=>{
+        G.timer-=0.1;
+        if(G.timer<=0){G.timer=0;clearInterval(G.tiv);timeUp();}
+        updTimer();
+    },100);
+}
+
+function updTimer(){
+    const pct=(G.timer/QTIME)*100;
+    const f=document.getElementById('timer-fill');
+    f.style.width=pct+'%';
+    f.classList.toggle('urgent',G.timer<3);
+    document.getElementById('h-time').textContent=Math.ceil(G.timer);
+    // Warn if no zone and time is low
+    if(G.timer<3&&G.currentZone<0&&!G.answered){
+        document.getElementById('hint-bar').textContent='รีบเลือกคำตอบ!';
+        document.getElementById('hint-bar').style.color='var(--wrong)';
+    }
+}
+
+function hud(){
+    document.getElementById('h-score').textContent=G.score;
+    document.getElementById('h-ok').textContent=G.ok;
+    document.getElementById('h-no').textContent=G.no;
+}
+
+// ─── Game Start / End ───
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function getQs(){
+    if(G.cat==='custom'&&G.aiQuiz) return G.aiQuiz;
+    const bank=BANK[G.cat];
+    if(!bank) return BANK.general.medium;
+    const list=bank[G.diff]||bank.medium;
+    return shuffle(list).slice(0,10);
+}
+
+function beginGame(){
+    G.qs=getQs(); G.qi=0; G.score=0; G.ok=0; G.no=0; G.results=[]; G.active=false;
+    document.getElementById('h-qnum').parentElement.querySelector('[style*="444"]').textContent='/'+G.qs.length;
+    hide('menu'); hide('gameover');
+    show('countdown');
+    document.getElementById('game-screen').style.display='flex';
+
+    buildGrid();
+
+    // Countdown
+    let n=3;
+    const el=document.getElementById('count-num');
+    el.textContent=n; el.className='countdown-num';
+    const iv=setInterval(()=>{
+        n--;
+        if(n>0){el.textContent=n;el.className='countdown-num';void el.offsetWidth;el.className='countdown-num';}
+        else{clearInterval(iv);hide('countdown');G.active=true;showQ();}
+    },700);
+}
+
+function endGame(){
+    G.active=false; clearInterval(G.tiv);
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    const tot=G.ok+G.no;
+    const acc=tot>0?Math.round(G.ok/tot*100):0;
+    document.getElementById('final-score').textContent=G.score;
+    document.getElementById('s-ok').textContent=G.ok;
+    document.getElementById('s-no').textContent=G.no;
+    document.getElementById('s-acc').textContent=acc+'%';
+
+    document.getElementById('results-list').innerHTML=G.results.map((r,i)=>`
+        <div class="result-row">
+            <div class="result-dot" style="background:${r.ok?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)'};color:${r.ok?'var(--correct)':'var(--wrong)'};">${r.ok?'✓':'✗'}</div>
+            <div style="font-size:0.75rem;">
+                <div style="color:#bbb;">${r.q}</div>
+                <div style="color:${r.ok?'var(--correct)':'var(--wrong)'};font-size:0.65rem;">${r.ok?'✓ '+r.ans:'✗ '+r.pick+' → ✓ '+r.ans}</div>
+            </div>
+        </div>`).join('');
+    show('gameover');
+}
+
+function goMenu(){
+    hide('gameover');
+    document.getElementById('game-screen').style.display='none';
+    document.querySelectorAll('.zone-lbl').forEach(l=>l.remove());
+    show('menu');
+}
+
+// ─── Menu Interactions ───
+function pickCat(cat){
+    G.cat=cat;
+    document.querySelectorAll('.cat-card').forEach(c=>c.classList.toggle('selected',c.dataset.cat===cat));
+}
+function pickDiff(d){
+    G.diff=d;
+    document.querySelectorAll('.diff-btn').forEach(b=>{
+        b.classList.remove('sel-easy','sel-medium','sel-hard');
+        if(b.dataset.d===d) b.classList.add('sel-'+d);
+    });
+}
+function switchTab(t){
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+    document.getElementById('tab-play').style.display=t==='play'?'block':'none';
+    document.getElementById('tab-create').style.display=t==='create'?'block':'none';
+}
+
+// ─── Keyboard ───
+document.addEventListener('keydown',e=>{
+    if(!G.active) return;
+    let dr=0,dc=0;
+    const k=e.key.toLowerCase();
+    if(k==='w'||k==='arrowup') dr=-1;
+    else if(k==='s'||k==='arrowdown') dr=1;
+    else if(k==='a'||k==='arrowleft') dc=-1;
+    else if(k==='d'||k==='arrowright') dc=1;
+    else if(k>='1'&&k<='4'){e.preventDefault();goToZone(parseInt(k)-1);return;}
+    else return;
+    e.preventDefault();
+    G.pr+=dr;G.pc+=dc;
+    moveP();checkZone();
+});
+
+// Reposition player on resize
+window.addEventListener('resize',()=>{if(G.active)moveP();});
+
+// ─── AI Generator ───
+async function aiGenerate(){
+    const cat=document.getElementById('ai-cat').value;
+    const diff=document.getElementById('ai-diff').value;
+    const num=document.getElementById('ai-num').value;
+    const topic=document.getElementById('ai-topic').value;
+
+    const catMap={general:'ความรู้รอบตัว',math:'คณิตศาสตร์',english:'ภาษาอังกฤษ',science:'วิทยาศาสตร์',history:'ประวัติศาสตร์',geography:'ภูมิศาสตร์',custom:topic||'ทั่วไป'};
+    const diffMap={easy:'ง่าย',medium:'ปานกลาง',hard:'ยาก'};
+
+    const prompt=`สร้าง Quiz ${num} ข้อ หมวด: ${catMap[cat]} ระดับ: ${diffMap[diff]}
+ตอบเป็น JSON array เท่านั้น ไม่มี markdown
+[{"q":"คำถาม","c":["ก","ข","ค","ง"],"a":0}]
+a = index (0-3) ของคำตอบถูก ทุกข้อ 4 ตัวเลือก ถูกต้อง ไม่ซ้ำ`;
+
+    document.getElementById('btn-gen').style.display='none';
+    document.getElementById('ai-loading').style.display='block';
+    document.getElementById('ai-preview').style.display='none';
+
+    try{
+        const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyCmWMODXRbwzcFEjTAWfRqTOOBmNmSO1Pg',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.8,maxOutputTokens:4096}})
+        });
+        const d=await r.json();
+        let t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+        t=t.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        const quiz=JSON.parse(t).filter(q=>q.q&&Array.isArray(q.c)&&q.c.length===4&&typeof q.a==='number'&&q.a>=0&&q.a<=3);
+        if(!quiz.length) throw new Error('empty');
+        G.aiQuiz=quiz;
+        showPreview(quiz);
+    }catch(e){
+        console.error(e);
+        const fb=shuffle(BANK.general[diff]||BANK.general.medium).slice(0,parseInt(num));
+        G.aiQuiz=fb;
+        showPreview(fb);
+    }
+    document.getElementById('btn-gen').style.display='block';
+    document.getElementById('ai-loading').style.display='none';
+}
+
+function showPreview(quiz){
+    document.getElementById('ai-preview').style.display='block';
+    document.getElementById('ai-count').textContent=quiz.length+' ข้อ';
+    document.getElementById('ai-list').innerHTML=quiz.map((q,i)=>`
+        <div class="preview-item">
+            <div class="preview-q">${i+1}. ${q.q}</div>
+            <div class="preview-choices">${q.c.map((ch,ci)=>`<div class="${ci===q.a?'ok':''}">${ci===q.a?'✓':'○'} ${ch}</div>`).join('')}</div>
+        </div>`).join('');
+}
+
+function playAI(){
+    if(!G.aiQuiz) return;
+    G.cat='custom';
+    document.getElementById('custom-card').style.display='flex';
+    document.getElementById('custom-name').textContent='AI ('+G.aiQuiz.length+' ข้อ)';
+    switchTab('play');pickCat('custom');
+    beginGame();
+}
+
+function exportJSON(){
+    if(!G.aiQuiz) return;
+    const b=new Blob([JSON.stringify(G.aiQuiz,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='quiz_'+Date.now()+'.json';a.click();
+}
+
+// ─── Helpers ───
+function show(id){document.getElementById(id).classList.remove('hidden');}
+function hide(id){document.getElementById(id).classList.add('hidden');}
+
+// Init
+pickCat('general');pickDiff('easy');
+</script>
+</body>
+</html>

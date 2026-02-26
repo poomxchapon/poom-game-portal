@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Hunter - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #e94560; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #e94560; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #e94560; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #e94560; color: white; }
+        tr:nth-child(even) { background: #f8f9fa; }
+        .flow-box { background: #f0f0f0; border: 2px solid #e94560; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #e94560; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #e94560; }
+        .highlight { background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🎨</div>
+    <h1>COLOR HUNTER</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Action / Reaction</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 1-4 Players</p>
+        <p><strong>Grid Size:</strong> 10 x 6 (60 tiles)</p>
+        <p><strong>Duration:</strong> 90-300 seconds (configurable)</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Color Hunter is a fast-paced color matching game where players must quickly identify and step on tiles that match the target color displayed on screen. The game tests reaction speed, color recognition, and spatial awareness.</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Color Hunter.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select number of players (1-4 Players)</div>
+        <div class="step"><span class="step-number">Step 3:</span> Select game duration:
+            <ul>
+                <li>90 seconds (Short)</li>
+                <li>120 seconds (Normal)</li>
+                <li>180 seconds (Long)</li>
+                <li>300 seconds (Marathon)</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 4:</span> Click "START GAME" button</div>
+        <div class="step"><span class="step-number">Step 5:</span> Countdown 3-2-1 begins</div>
+        <div class="step"><span class="step-number">Step 6:</span> Game starts! Watch for target color and step on matching tiles</div>
+    </div>
+
+    <h2>3. Gameplay Mechanics</h2>
+    <h3>3.1 Core Loop</h3>
+    <ol>
+        <li>A target color is displayed at the top of the screen</li>
+        <li>Colored tiles appear randomly on the 10x6 grid</li>
+        <li>Players must step on tiles matching the target color</li>
+        <li>Correct hit = Score points + Combo builds</li>
+        <li>Wrong color = Combo breaks</li>
+        <li>Target color changes every round</li>
+    </ol>
+
+    <h3>3.2 Scoring System</h3>
+    <table>
+        <tr>
+            <th>Action</th>
+            <th>Points</th>
+        </tr>
+        <tr>
+            <td>Correct color hit</td>
+            <td>+10 points</td>
+        </tr>
+        <tr>
+            <td>Combo bonus (per combo)</td>
+            <td>+2 points</td>
+        </tr>
+        <tr>
+            <td>Wrong color hit</td>
+            <td>0 points (combo reset)</td>
+        </tr>
+    </table>
+
+    <h3>3.3 Available Colors</h3>
+    <ul>
+        <li>🔴 Red</li>
+        <li>🟢 Green</li>
+        <li>🔵 Blue</li>
+        <li>🟡 Yellow</li>
+        <li>🟣 Purple</li>
+        <li>🟠 Orange</li>
+    </ul>
+
+    <h2>4. Controls</h2>
+    <div class="highlight">
+        <p><strong>LED Floor Mode:</strong> Players physically step on the colored tiles</p>
+        <p><strong>Keyboard Mode:</strong> Click on tiles with mouse or use touch screen</p>
+    </div>
+
+    <h2>5. Player Configuration</h2>
+    <table>
+        <tr>
+            <th>Mode</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>1 Player</td>
+            <td>Solo play - beat your high score</td>
+        </tr>
+        <tr>
+            <td>2 Players</td>
+            <td>Competitive - who scores more?</td>
+        </tr>
+        <tr>
+            <td>3-4 Players</td>
+            <td>Party mode - chaos and fun!</td>
+        </tr>
+    </table>
+
+    <h2>6. Win Condition</h2>
+    <p>When time runs out, the player with the highest score wins. In solo mode, try to beat your personal best!</p>
+
+    <h2>7. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> Final scores for all players</div>
+        <div class="step"><span class="step-number">Display:</span> Winner announcement (multiplayer)</div>
+        <div class="step"><span class="step-number">Options:</span> "Play Again" or "Back to Menu"</div>
+    </div>
+
+    <h2>8. Technical Notes</h2>
+    <ul>
+        <li>Supports Socket.io bridge for LED floor hardware integration</li>
+        <li>Responsive design works on all screen sizes</li>
+        <li>60 FPS animation for smooth gameplay</li>
+        <li>Local storage for high scores</li>
+    </ul>
+
+    <div class="highlight">
+        <h3>Tips for Players</h3>
+        <ul>
+            <li>Focus on the target color before looking at the grid</li>
+            <li>Build combos for maximum points</li>
+            <li>Don't panic - accuracy is more important than speed</li>
+        </ul>
+    </div>
+</body>
+</html>

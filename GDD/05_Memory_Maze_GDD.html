@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Maze - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #8b5cf6; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #8b5cf6; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #8b5cf6; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #f5f3ff; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #8b5cf6; color: white; }
+        tr:nth-child(even) { background: #f5f3ff; }
+        .flow-box { background: #f5f3ff; border: 2px solid #8b5cf6; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #8b5cf6; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #8b5cf6; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .danger { background: #fee2e2; padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444; margin: 15px 0; }
+        .success { background: #dcfce7; padding: 15px; border-radius: 8px; border-left: 4px solid #22c55e; margin: 15px 0; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🧠</div>
+    <h1>MEMORY MAZE</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Memory / Puzzle</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 1 Player (Single Player)</p>
+        <p><strong>Grid Size:</strong> 6 x 10 (60 tiles)</p>
+        <p><strong>Max Levels:</strong> 20 levels</p>
+        <p><strong>Starting HP:</strong> 5 hearts</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Memory Maze is a brain-training puzzle game that challenges your memory and pattern recognition. Watch the path light up, memorize it, then walk the same path! Each level adds more steps to the path, testing your memory limits.</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Memory Maze.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> View the start screen with instructions</div>
+        <div class="step"><span class="step-number">Step 3:</span> Click "START GAME" button</div>
+        <div class="step"><span class="step-number">Step 4:</span> Level 1 begins - Watch the path!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <table>
+        <tr>
+            <th>Input Method</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td><strong>Mouse Click</strong></td>
+            <td>Click on tiles to walk the path</td>
+        </tr>
+        <tr>
+            <td><strong>Touch Screen</strong></td>
+            <td>Tap tiles on mobile/tablet</td>
+        </tr>
+        <tr>
+            <td><strong>LED Floor</strong></td>
+            <td>Physically step on tiles</td>
+        </tr>
+    </table>
+
+    <h3>Movement Rules</h3>
+    <ul>
+        <li>You can move to adjacent tiles (up, down, left, right)</li>
+        <li><strong>Diagonal movement is allowed!</strong> (8 directions total)</li>
+        <li>You must follow the exact path shown</li>
+    </ul>
+
+    <h2>4. Gameplay Flow</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Phase 1: WATCH</span>
+            <ul>
+                <li>The path lights up tile by tile</li>
+                <li>Pay close attention to the sequence!</li>
+                <li>The path gets longer each level</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Phase 2: MEMORIZE</span>
+            <ul>
+                <li>Brief pause after path is shown</li>
+                <li>Remember the sequence!</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Phase 3: WALK</span>
+            <ul>
+                <li>"YOUR TURN!" appears on screen</li>
+                <li>Click/step on tiles in the correct order</li>
+                <li>Correct tiles light up green</li>
+                <li>Wrong tiles flash red = lose 1 HP</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Phase 4: RESULT</span>
+            <ul>
+                <li>Complete the path = Next Level!</li>
+                <li>Path gets 1-2 tiles longer</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>5. Scoring & Progression</h2>
+    <h3>5.1 Level Progression</h3>
+    <table>
+        <tr>
+            <th>Level Range</th>
+            <th>Path Length</th>
+            <th>Difficulty</th>
+        </tr>
+        <tr>
+            <td>Level 1-5</td>
+            <td>3-7 tiles</td>
+            <td>Easy</td>
+        </tr>
+        <tr>
+            <td>Level 6-10</td>
+            <td>8-12 tiles</td>
+            <td>Medium</td>
+        </tr>
+        <tr>
+            <td>Level 11-15</td>
+            <td>13-17 tiles</td>
+            <td>Hard</td>
+        </tr>
+        <tr>
+            <td>Level 16-20</td>
+            <td>18-22 tiles</td>
+            <td>Expert</td>
+        </tr>
+    </table>
+
+    <h3>5.2 HP System</h3>
+    <div class="danger">
+        <h3>Lives / HP</h3>
+        <ul>
+            <li>Start with <strong>5 HP</strong> (hearts)</li>
+            <li>Wrong tile = <strong>-1 HP</strong></li>
+            <li>0 HP = <strong>GAME OVER</strong></li>
+            <li>HP does NOT regenerate between levels</li>
+        </ul>
+    </div>
+
+    <h2>6. Win & Lose Conditions</h2>
+    <div class="success">
+        <h3>Victory!</h3>
+        <p>Complete all 20 levels to win the game! You are a Memory Master!</p>
+    </div>
+    <div class="danger">
+        <h3>Game Over</h3>
+        <p>Lose all 5 HP before completing level 20. Try again!</p>
+    </div>
+
+    <h2>7. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> Final level reached</div>
+        <div class="step"><span class="step-number">Display:</span> Remaining HP</div>
+        <div class="step"><span class="step-number">Display:</span> High score (if local storage available)</div>
+        <div class="step"><span class="step-number">Options:</span> "Play Again" or "Back to Menu"</div>
+    </div>
+
+    <div class="highlight">
+        <h3>Memory Tips</h3>
+        <ul>
+            <li><strong>Chunk the path:</strong> Break long paths into smaller sections</li>
+            <li><strong>Use landmarks:</strong> Remember positions relative to corners/edges</li>
+            <li><strong>Speak aloud:</strong> Say the directions as you watch ("up, right, down...")</li>
+            <li><strong>Trace with eyes:</strong> Follow the path with your eyes multiple times</li>
+            <li><strong>Stay calm:</strong> Don't rush - think before each step</li>
+        </ul>
+    </div>
+
+    <h2>8. Visual Feedback</h2>
+    <table>
+        <tr>
+            <th>Tile State</th>
+            <th>Color</th>
+            <th>Meaning</th>
+        </tr>
+        <tr>
+            <td>Path tile (showing)</td>
+            <td>Bright yellow/gold</td>
+            <td>Part of the sequence to memorize</td>
+        </tr>
+        <tr>
+            <td>Correct step</td>
+            <td>Green glow</td>
+            <td>You stepped correctly!</td>
+        </tr>
+        <tr>
+            <td>Wrong step</td>
+            <td>Red flash</td>
+            <td>Wrong tile! -1 HP</td>
+        </tr>
+        <tr>
+            <td>Player position</td>
+            <td>Cyan/blue</td>
+            <td>Your current position</td>
+        </tr>
+    </table>
+</body>
+</html>

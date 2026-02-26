@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhythm Stomp - Game Design Document</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1 { color: #ff00ff; font-size: 2.5em; margin-bottom: 10px; border-bottom: 4px solid #ff00ff; padding-bottom: 10px; }
+        h2 { color: #1a1a2e; font-size: 1.5em; margin: 30px 0 15px; border-left: 4px solid #ff00ff; padding-left: 15px; }
+        h3 { color: #16213e; font-size: 1.2em; margin: 20px 0 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-left: 25px; margin-bottom: 15px; }
+        li { margin-bottom: 8px; }
+        .header-info { background: #fdf4ff; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+        .header-info p { margin-bottom: 5px; font-size: 0.95em; }
+        .game-icon { font-size: 4em; text-align: center; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #ff00ff; color: white; }
+        tr:nth-child(even) { background: #fdf4ff; }
+        .flow-box { background: #fdf4ff; border: 2px solid #ff00ff; border-radius: 10px; padding: 20px; margin: 15px 0; }
+        .step { background: #fff; border-left: 4px solid #ff00ff; padding: 10px 15px; margin: 10px 0; }
+        .step-number { font-weight: bold; color: #ff00ff; }
+        .highlight { background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 15px 0; }
+        .player1 { background: #e0ffff; padding: 15px; border-radius: 8px; border-left: 4px solid #00ffff; margin: 15px 0; }
+        .player2 { background: #ffe0ff; padding: 15px; border-radius: 8px; border-left: 4px solid #ff00ff; margin: 15px 0; }
+        .key-box { display: inline-block; background: #333; color: #fff; padding: 5px 12px; border-radius: 5px; font-family: monospace; font-weight: bold; margin: 2px; }
+        @media print {
+            body { padding: 20px; }
+            h1 { font-size: 2em; }
+            .flow-box { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-icon">🎵</div>
+    <h1>RHYTHM STOMP</h1>
+    <div class="header-info">
+        <p><strong>Game Type:</strong> Rhythm / Music</p>
+        <p><strong>Platform:</strong> HTML5 / LED Floor</p>
+        <p><strong>Players:</strong> 1-2 Players</p>
+        <p><strong>Grid Size:</strong> 6 x 10 per player (6 lanes)</p>
+        <p><strong>Duration:</strong> 60 seconds (or song length)</p>
+        <p><strong>Modes:</strong> Classic, Hard</p>
+    </div>
+
+    <h2>1. Game Overview</h2>
+    <p>Rhythm Stomp is a dance rhythm game where notes fall from the top of the screen and players must hit them when they reach the target zone at the bottom. Time your stomps to the beat and rack up combos for high scores! Supports custom music uploads.</p>
+
+    <h2>2. Flow: How to Start the Game</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Step 1:</span> Open the game (Rhythm_stomp.html)</div>
+        <div class="step"><span class="step-number">Step 2:</span> Select game mode:
+            <ul>
+                <li><strong>🎵 Classic:</strong> Standard note speed, fewer notes</li>
+                <li><strong>🔥 Hard:</strong> Faster notes, more complex patterns</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 3:</span> Select players:
+            <ul>
+                <li><strong>👤 1P:</strong> Single player mode</li>
+                <li><strong>👥 2P:</strong> Versus mode - compete!</li>
+            </ul>
+        </div>
+        <div class="step"><span class="step-number">Step 4:</span> (Optional) Upload custom music (MP3, WAV, OGG)</div>
+        <div class="step"><span class="step-number">Step 5:</span> Click "▶ START" button</div>
+        <div class="step"><span class="step-number">Step 6:</span> Countdown 3-2-1-GO! begins</div>
+        <div class="step"><span class="step-number">Step 7:</span> Notes start falling - stomp to the beat!</div>
+    </div>
+
+    <h2>3. Controls</h2>
+    <h3>3.1 Player 1 (Cyan)</h3>
+    <div class="player1">
+        <p><strong>6 Keys for 6 Lanes:</strong></p>
+        <p>
+            <span class="key-box">A</span>
+            <span class="key-box">S</span>
+            <span class="key-box">D</span>
+            <span class="key-box">F</span>
+            <span class="key-box">G</span>
+            <span class="key-box">H</span>
+        </p>
+        <p>Lane 1 → Lane 2 → Lane 3 → Lane 4 → Lane 5 → Lane 6</p>
+    </div>
+
+    <h3>3.2 Player 2 (Magenta)</h3>
+    <div class="player2">
+        <p><strong>6 Keys for 6 Lanes:</strong></p>
+        <p>
+            <span class="key-box">J</span>
+            <span class="key-box">K</span>
+            <span class="key-box">L</span>
+            <span class="key-box">;</span>
+            <span class="key-box">'</span>
+            <span class="key-box">Enter</span>
+        </p>
+        <p>Lane 1 → Lane 2 → Lane 3 → Lane 4 → Lane 5 → Lane 6</p>
+    </div>
+
+    <h2>4. Game Mechanics</h2>
+    <h3>4.1 Note System</h3>
+    <ul>
+        <li>Notes are <strong>square-shaped</strong> blocks</li>
+        <li>They fall from top to bottom in 6 lanes</li>
+        <li>Target zone is the glowing row at the bottom</li>
+        <li>Press the correct key when note reaches target zone</li>
+        <li>Notes travel for 2.2 seconds from top to target</li>
+    </ul>
+
+    <h3>4.2 Timing & Judgment</h3>
+    <table>
+        <tr>
+            <th>Judgment</th>
+            <th>Timing Window</th>
+            <th>Points</th>
+            <th>Color</th>
+        </tr>
+        <tr>
+            <td><strong>PERFECT</strong></td>
+            <td>±150ms</td>
+            <td>100 points</td>
+            <td style="color: #ffff00;">Yellow</td>
+        </tr>
+        <tr>
+            <td><strong>GOOD</strong></td>
+            <td>±300ms</td>
+            <td>50 points</td>
+            <td style="color: #00ff00;">Green</td>
+        </tr>
+        <tr>
+            <td><strong>MISS</strong></td>
+            <td>Too late / Too early</td>
+            <td>0 points</td>
+            <td style="color: #ff0000;">Red</td>
+        </tr>
+    </table>
+
+    <h3>4.3 Combo System</h3>
+    <ul>
+        <li>Consecutive hits build your <strong>Combo</strong></li>
+        <li>Every 10 combos = +10 bonus points per hit</li>
+        <li>Miss = Combo resets to 0</li>
+        <li>Max combo is tracked for final stats</li>
+    </ul>
+
+    <h2>5. Difficulty Modes</h2>
+    <table>
+        <tr>
+            <th>Mode</th>
+            <th>Note Frequency</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>🎵 Classic</td>
+            <td>Moderate</td>
+            <td>Relaxed pace, good for beginners</td>
+        </tr>
+        <tr>
+            <td>🔥 Hard</td>
+            <td>High</td>
+            <td>Fast-paced, more notes, challenging patterns</td>
+        </tr>
+    </table>
+
+    <h2>6. Custom Music</h2>
+    <div class="highlight">
+        <h3>Upload Your Own Music!</h3>
+        <ul>
+            <li>Click "Choose File" in the upload section</li>
+            <li>Supported formats: MP3, WAV, OGG</li>
+            <li>Notes will be generated to match the song length</li>
+            <li>BPM is set to 128 by default</li>
+        </ul>
+    </div>
+
+    <h2>7. Game End & Grading</h2>
+    <table>
+        <tr>
+            <th>Grade</th>
+            <th>Accuracy Required</th>
+        </tr>
+        <tr>
+            <td style="font-size: 1.5em;">S</td>
+            <td>95% or higher</td>
+        </tr>
+        <tr>
+            <td style="font-size: 1.5em;">A</td>
+            <td>90% - 94%</td>
+        </tr>
+        <tr>
+            <td style="font-size: 1.5em;">B</td>
+            <td>80% - 89%</td>
+        </tr>
+        <tr>
+            <td style="font-size: 1.5em;">C</td>
+            <td>70% - 79%</td>
+        </tr>
+        <tr>
+            <td style="font-size: 1.5em;">D</td>
+            <td>Below 70%</td>
+        </tr>
+    </table>
+
+    <h2>8. Game End Screen</h2>
+    <div class="flow-box">
+        <div class="step"><span class="step-number">Display:</span> Final score for each player</div>
+        <div class="step"><span class="step-number">Display:</span> Grade (S/A/B/C/D)</div>
+        <div class="step"><span class="step-number">Display:</span> Stats: Perfect/Good/Miss counts</div>
+        <div class="step"><span class="step-number">Display:</span> Max Combo achieved</div>
+        <div class="step"><span class="step-number">2P Mode:</span> Winner announcement (gold border)</div>
+        <div class="step"><span class="step-number">Options:</span> "🔄 Retry" or "🏠 Menu"</div>
+    </div>
+
+    <div class="highlight">
+        <h3>Pro Tips</h3>
+        <ul>
+            <li><strong>Watch the target zone:</strong> Focus on where notes land, not where they start</li>
+            <li><strong>Use your peripheral vision:</strong> See all 6 lanes at once</li>
+            <li><strong>Keep your fingers ready:</strong> Hover over all keys</li>
+            <li><strong>Practice timing:</strong> Listen to the beat flash for rhythm cues</li>
+            <li><strong>Start with Classic:</strong> Master the basics before Hard mode</li>
+        </ul>
+    </div>
+</body>
+</html>
