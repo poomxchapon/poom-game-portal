@@ -138,7 +138,7 @@
         .g-tile {
             width: var(--tile-size); height: var(--tile-size);
             background: var(--tile-bg); border-radius: 4px; border: 1px solid transparent;
-            cursor: pointer; transition: all 0.12s;
+            transition: all 0.12s;
             display: flex; align-items: center; justify-content: center;
         }
         .g-tile:hover:not(.traced) { background: #221a40; }
@@ -482,15 +482,7 @@ function buildGrids() {
             const t = document.createElement('div');
             t.className = 'g-tile';
             t.dataset.idx = i;
-            if (id === 'grid-a') {
-                t.addEventListener('click', () => {
-                    if (!G.roundActive) return;
-                    G.pr = Math.floor(i / COLS);
-                    G.pc = i % COLS;
-                    movePlayer();
-                    checkTrace();
-                });
-            }
+            // No click-to-move — WASD/Arrows only
             g.appendChild(t);
         }
         if (playerEl) g.appendChild(playerEl);
