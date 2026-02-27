@@ -150,6 +150,10 @@
         .g-tile.traced { animation: tracePop 0.3s ease-out; }
         @keyframes tracePop { 0%{transform:scale(0.8)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
 
+        /* Play Area */
+        .g-tile.play-area { background: #1e1840; border: 1px solid rgba(255,255,255,0.04); }
+        .g-tile.outside { background: #0e0b18; opacity: 0.5; }
+
         /* Footprint */
         .g-tile.footprint { background: rgba(255,255,255,0.08) !important; }
 
@@ -249,6 +253,12 @@
             background: rgba(255,255,255,0.55); border-radius: 50%;
             position: absolute; top: 18%; left: 20%; filter: blur(1px);
         }
+        #player.jumping {
+            transform: scale(0.65);
+            opacity: 0.5;
+            box-shadow: 0 0 6px rgba(245,158,11,0.3);
+            transition: transform 0.08s, opacity 0.08s;
+        }
 
         /* Single mode bigger tiles */
         body.single-mode { --tile-size: min(5vw, 4.5vh, 42px); }
@@ -289,16 +299,16 @@
         <div class="menu-divider"></div>
         <div style="font-size:0.85rem;color:var(--accent);margin-bottom:4px;">Drawing / Memory</div>
         <div style="font-size:0.75rem;color:#777;max-width:340px;margin:0 auto 20px;line-height:1.7;">
-            รูปทรงโจทย์ปรากฏบนหน้าจอ!<br>
-            <span style="color:var(--team-a);">วิ่งวาดรูปบนพื้นให้ตรงกับโจทย์</span><br>
-            วาดครบ <span style="color:var(--gold);">5 รูป</span> ก่อนชนะ!
+            จำรูปทรงโจทย์ แล้ววาดจากความจำ!<br>
+            <span style="color:var(--team-a);">เดิน WASD = วาด · กด SPACE ค้าง = กระโดด</span><br>
+            <span style="color:#888;">เหยียบซ้ำ = ไฟดับ</span> · วาดครบ <span style="color:var(--gold);">5 รูป</span> ชนะ!
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
             <button class="btn-primary" onclick="beginGame('dual')">DUAL LANE</button>
             <button class="btn-primary" onclick="beginGame('single')" style="background:linear-gradient(135deg,#8b5cf6,#a855f7);box-shadow:0 0 25px rgba(139,92,246,0.3);">SINGLE LANE</button>
         </div>
         <div style="font-size:0.45rem;color:#333;margin-top:12px;font-family:'Orbitron',sans-serif;letter-spacing:2px;">
-            WASD / ARROWS &middot; 5 SHAPES &middot; TRACE TO WIN
+            WALK TO DRAW &middot; SPACE TO JUMP &middot; 17 SHAPES
         </div>
     </div>
 </div>
@@ -388,7 +398,7 @@
     </div>
 
     <div class="timer-track" id="timer-track" style="display:none;"><div id="timer-fill" class="timer-fill"></div></div>
-    <div class="hint-bar">WASD / ARROWS TO MOVE &middot; TRACE ALL HIGHLIGHTED TILES!</div>
+    <div class="hint-bar">WASD = WALK &amp; DRAW &middot; HOLD SPACE = JUMP (NO DRAW) &middot; DRAW FROM MEMORY!</div>
 </div>
 
 <script>
@@ -397,36 +407,114 @@
 // ═══════════════════════════════════════
 const COLS = 6, ROWS = 15, TOTAL = COLS * ROWS;
 
-// Shape definitions (relative coordinates)
-const SHAPES = [
+// Shape definitions by difficulty (relative coordinates)
+const SHAPES_EASY = [
     {
-        name: "LINE", desc: "เส้นตรง",
+        name: "CORNER", desc: "มุม", difficulty: "EASY",
+        tiles: [[0,0],[0,1],[1,0]],
+        color: "#34d399", glow: "rgba(52,211,153,0.5)", dim: "rgba(52,211,153,0.12)",
+        time: 25,
+    },
+    {
+        name: "LINE", desc: "เส้นตรง", difficulty: "EASY",
         tiles: [[0,0],[0,1],[0,2],[0,3]],
         color: "#22c55e", glow: "rgba(34,197,94,0.5)", dim: "rgba(34,197,94,0.12)",
+        time: 25,
+    },
+    {
+        name: "PILLAR", desc: "เสา", difficulty: "EASY",
+        tiles: [[0,0],[1,0],[2,0],[3,0]],
+        color: "#10b981", glow: "rgba(16,185,129,0.5)", dim: "rgba(16,185,129,0.12)",
+        time: 25,
+    },
+    {
+        name: "T-MINI", desc: "ตัวทีเล็ก", difficulty: "EASY",
+        tiles: [[0,0],[0,1],[0,2],[1,1]],
+        color: "#6ee7b7", glow: "rgba(110,231,183,0.5)", dim: "rgba(110,231,183,0.12)",
+        time: 25,
+    },
+    {
+        name: "ANGLE", desc: "มุมฉาก", difficulty: "EASY",
+        tiles: [[0,0],[1,0],[2,0],[2,1],[2,2]],
+        color: "#059669", glow: "rgba(5,150,105,0.5)", dim: "rgba(5,150,105,0.12)",
+        time: 25,
+    },
+    {
+        name: "PLUS", desc: "เครื่องหมายบวก", difficulty: "EASY",
+        tiles: [[0,1],[1,0],[1,1],[1,2],[2,1]],
+        color: "#2dd4bf", glow: "rgba(45,212,191,0.5)", dim: "rgba(45,212,191,0.12)",
+        time: 25,
+    },
+];
+
+const SHAPES_MED = [
+    {
+        name: "Z-SHAPE", desc: "ตัวแซด", difficulty: "MEDIUM",
+        tiles: [[0,0],[0,1],[1,1],[1,2],[2,2],[2,3]],
+        color: "#06b6d4", glow: "rgba(6,182,212,0.5)", dim: "rgba(6,182,212,0.12)",
         time: 20,
     },
     {
-        name: "L-SHAPE", desc: "ตัวแอล",
-        tiles: [[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[3,3]],
+        name: "STAIRS", desc: "ขั้นบันได", difficulty: "MEDIUM",
+        tiles: [[0,0],[1,0],[1,1],[2,1],[2,2],[3,2]],
+        color: "#0ea5e9", glow: "rgba(14,165,233,0.5)", dim: "rgba(14,165,233,0.12)",
+        time: 20,
+    },
+    {
+        name: "L-SHAPE", desc: "ตัวแอล", difficulty: "MEDIUM",
+        tiles: [[0,0],[1,0],[2,0],[3,0],[3,1],[3,2]],
         color: "#3b82f6", glow: "rgba(59,130,246,0.5)", dim: "rgba(59,130,246,0.12)",
         time: 20,
     },
     {
-        name: "CROSS", desc: "กากบาท",
-        tiles: [[0,2],[1,2],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2]],
-        color: "#a855f7", glow: "rgba(168,85,247,0.5)", dim: "rgba(168,85,247,0.12)",
+        name: "T-SHAPE", desc: "ตัวที", difficulty: "MEDIUM",
+        tiles: [[0,0],[0,1],[0,2],[0,3],[0,4],[1,2],[2,2]],
+        color: "#6366f1", glow: "rgba(99,102,241,0.5)", dim: "rgba(99,102,241,0.12)",
         time: 18,
     },
     {
-        name: "SQUARE", desc: "สี่เหลี่ยม",
+        name: "U-SHAPE", desc: "ตัวยู", difficulty: "MEDIUM",
+        tiles: [[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2]],
+        color: "#8b5cf6", glow: "rgba(139,92,246,0.5)", dim: "rgba(139,92,246,0.12)",
+        time: 18,
+    },
+    {
+        name: "DIAMOND", desc: "เพชร", difficulty: "MEDIUM",
+        tiles: [[0,2],[1,1],[1,3],[2,0],[2,4],[3,1],[3,3],[4,2]],
+        color: "#a855f7", glow: "rgba(168,85,247,0.5)", dim: "rgba(168,85,247,0.12)",
+        time: 18,
+    },
+];
+
+const SHAPES_HARD = [
+    {
+        name: "CROSS", desc: "กากบาท", difficulty: "HARD",
+        tiles: [[0,2],[1,2],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2]],
+        color: "#f97316", glow: "rgba(249,115,22,0.5)", dim: "rgba(249,115,22,0.12)",
+        time: 15,
+    },
+    {
+        name: "HEART", desc: "หัวใจ", difficulty: "HARD",
+        tiles: [[0,1],[0,3],[1,0],[1,1],[1,2],[1,3],[1,4],[2,1],[2,2],[2,3],[3,2]],
+        color: "#ec4899", glow: "rgba(236,72,153,0.5)", dim: "rgba(236,72,153,0.12)",
+        time: 15,
+    },
+    {
+        name: "SQUARE", desc: "สี่เหลี่ยม", difficulty: "HARD",
         tiles: [[0,0],[0,1],[0,2],[0,3],[1,0],[1,3],[2,0],[2,3],[3,0],[3,1],[3,2],[3,3]],
         color: "#f59e0b", glow: "rgba(245,158,11,0.5)", dim: "rgba(245,158,11,0.12)",
         time: 15,
     },
     {
-        name: "ARROW", desc: "ลูกศร",
+        name: "ARROW", desc: "ลูกศร", difficulty: "HARD",
         tiles: [[0,2],[1,1],[1,2],[1,3],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2],[5,2],[6,2]],
         color: "#ef4444", glow: "rgba(239,68,68,0.5)", dim: "rgba(239,68,68,0.12)",
+        time: 15,
+    },
+    {
+        name: "HOUSE", desc: "บ้าน", difficulty: "HARD",
+        tiles: [[0,2],[1,1],[1,3],[2,0],[2,1],[2,2],[2,3],[2,4],[3,0],[3,4],[4,0],[4,1],[4,2],[4,3],[4,4]],
+        color: "#dc2626", glow: "rgba(220,38,38,0.5)", dim: "rgba(220,38,38,0.12)",
         time: 15,
     },
 ];
@@ -447,7 +535,22 @@ const G = {
     maxTime: 20,
     pr: 13, pc: 2,
     currentShape: null,
+    roundShapes: [],  // 5 shapes picked per game
 };
+
+// ─── Play Area (centered zone where tiles can light up) ───
+const PLAY = { r1: 3, r2: 11, c1: 0, c2: 5 }; // 6 cols × 9 rows
+function inPlayArea(r, c) {
+    return r >= PLAY.r1 && r <= PLAY.r2 && c >= PLAY.c1 && c <= PLAY.c2;
+}
+
+// ─── Pick shapes per game: 2 easy → 2 medium → 1 hard ───
+function pickRoundShapes() {
+    const easy = shuffle(SHAPES_EASY);
+    const med = shuffle(SHAPES_MED);
+    const hard = shuffle(SHAPES_HARD);
+    return [easy[0], easy[1], med[0], med[1], hard[0]];
+}
 
 // ─── Helpers ───
 function centerShape(shape) {
@@ -479,10 +582,10 @@ function buildGrids() {
         const playerEl = id === 'grid-a' ? document.getElementById('player') : null;
         g.innerHTML = '';
         for (let i = 0; i < TOTAL; i++) {
+            const r = Math.floor(i / COLS), c = i % COLS;
             const t = document.createElement('div');
-            t.className = 'g-tile';
+            t.className = 'g-tile ' + (inPlayArea(r, c) ? 'play-area' : 'outside');
             t.dataset.idx = i;
-            // No click-to-move — WASD/Arrows only
             g.appendChild(t);
         }
         if (playerEl) g.appendChild(playerEl);
@@ -507,39 +610,67 @@ function movePlayer() {
     p.style.top = (tRect.top - gRect.top) + 'px';
 }
 
-// ─── Tracing ───
-function checkTrace() {
+// ─── Tracing (auto on walk, only in Play Area) ───
+function stampTile() {
     if (!G.roundActive) return;
+    if (!inPlayArea(G.pr, G.pc)) return; // outside play area → no stamp
+
     const idx = G.pr * COLS + G.pc;
     const tiles = getTiles('grid-a');
     const tile = tiles[idx];
     if (!tile) return;
 
-    if (G.targetIdxs.includes(idx) && !G.traced.has(idx)) {
+    if (G.traced.has(idx)) {
+        // Already lit → turn off
+        G.traced.delete(idx);
+        tile.classList.remove('traced');
+        tile.style.background = '';
+        tile.style.borderColor = '';
+        tile.style.boxShadow = '';
+    } else {
+        // Not lit → turn on
         G.traced.add(idx);
-        tile.classList.remove('target');
         tile.classList.add('traced');
         tile.style.background = G.currentShape.color;
         tile.style.borderColor = G.currentShape.color;
         tile.style.boxShadow = `0 0 12px ${G.currentShape.glow}`;
-        // Re-trigger animation
         tile.style.animation = 'none'; void tile.offsetWidth; tile.style.animation = '';
-        updateProgress();
+    }
+    updateProgress();
 
-        if (G.traced.size >= G.targetIdxs.length) {
-            playerCompletedRound();
-        }
-    } else if (!G.targetIdxs.includes(idx) && !tile.classList.contains('footprint')) {
-        tile.classList.add('footprint');
-        setTimeout(() => tile.classList.remove('footprint'), 600);
+    // Check completion: compare shape pattern regardless of position
+    if (G.traced.size >= G.currentShape.tiles.length && checkShapeMatch()) {
+        playerCompletedRound();
     }
 }
 
+// ─── Shape Matching (position-independent) ───
+function checkShapeMatch() {
+    if (G.traced.size !== G.currentShape.tiles.length) return false;
+
+    // Convert traced indices to [row, col]
+    const coords = [...G.traced].map(idx => [Math.floor(idx / COLS), idx % COLS]);
+
+    // Normalize to origin (0,0)
+    const minR = Math.min(...coords.map(([r]) => r));
+    const minC = Math.min(...coords.map(([, c]) => c));
+    const drawn = new Set(coords.map(([r, c]) => `${r - minR},${c - minC}`));
+
+    // Compare with shape definition
+    const target = new Set(G.currentShape.tiles.map(([r, c]) => `${r},${c}`));
+
+    if (drawn.size !== target.size) return false;
+    for (const t of target) {
+        if (!drawn.has(t)) return false;
+    }
+    return true;
+}
+
 function updateProgress() {
-    const total = G.targetIdxs.length;
+    const total = G.currentShape.tiles.length;
     const doneA = G.traced.size;
     document.getElementById('prog-text-a').textContent = `${doneA}/${total}`;
-    document.getElementById('prog-fill-a').style.width = (doneA / total * 100) + '%';
+    document.getElementById('prog-fill-a').style.width = Math.min(doneA / total * 100, 100) + '%';
 
     if (G.mode === 'dual') {
         const doneB = G.aiTraced.size;
@@ -575,17 +706,22 @@ function renderPreview(containerId, shape, cellSize) {
     }
 }
 
-// ─── Place Target Tiles on Grid ───
+// ─── Place Target Tiles on Grid (no visual hint — free drawing) ───
 function placeTargetTiles(gridId) {
-    const tiles = getTiles(gridId);
-    const shape = G.currentShape;
-    G.targetIdxs.forEach(idx => {
-        const tile = tiles[idx];
-        tile.classList.add('target');
-        tile.style.background = shape.dim;
-        tile.style.borderColor = shape.color;
-        tile.style.borderWidth = '1px';
-    });
+    // Target tiles stored in G.targetIdxs but NOT shown on grid
+    // Player draws freely from memory, guided only by the shape preview
+    if (gridId === 'grid-b') {
+        // AI grid still shows targets for visual feedback
+        const tiles = getTiles(gridId);
+        const shape = G.currentShape;
+        G.targetIdxs.forEach(idx => {
+            const tile = tiles[idx];
+            tile.classList.add('target');
+            tile.style.background = shape.dim;
+            tile.style.borderColor = shape.color;
+            tile.style.borderWidth = '1px';
+        });
+    }
 }
 
 // ─── AI Logic ───
@@ -722,16 +858,20 @@ function stopTimer() {
 function startRound(roundIdx) {
     G.round = roundIdx;
     G.roundActive = false;
-    G.currentShape = SHAPES[roundIdx];
+    G.currentShape = G.roundShapes[roundIdx];
     G.targetIdxs = centerShape(G.currentShape);
     G.traced = new Set();
     G.aiTraced = new Set();
 
-    // Show round intro
+    // Show round intro with difficulty
+    const diffColors = { EASY: '#22c55e', MEDIUM: '#3b82f6', HARD: '#ef4444' };
+    const diff = G.currentShape.difficulty;
     document.getElementById('intro-round-label').textContent = `ROUND ${roundIdx + 1}`;
     document.getElementById('intro-shape-name').innerHTML =
         `<span style="color:${G.currentShape.color}">${G.currentShape.name}</span>`;
-    document.getElementById('intro-tiles').textContent = `${G.currentShape.tiles.length} TILES`;
+    document.getElementById('intro-tiles').innerHTML =
+        `<span style="color:${diffColors[diff]};background:${diffColors[diff]}18;padding:2px 10px;border-radius:4px;font-size:0.6rem;">${diff}</span> ` +
+        `<span style="margin-left:6px;">${G.currentShape.tiles.length} TILES</span>`;
     renderPreview('intro-preview', G.currentShape, 16);
     show('round-intro');
 
@@ -771,6 +911,7 @@ function beginGame(mode) {
     G.scoreA = 0; G.scoreB = 0;
     G.active = true;
     G.roundActive = false;
+    G.roundShapes = pickRoundShapes();
 
     const isSingle = G.mode === 'single';
     document.body.classList.toggle('single-mode', isSingle);
@@ -861,7 +1002,19 @@ function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
 // ─── Keyboard ───
+let spaceHeld = false;
+
 document.addEventListener('keydown', e => {
+    // Space = jump (hold)
+    if (e.key === ' ') {
+        e.preventDefault();
+        if (!spaceHeld) {
+            spaceHeld = true;
+            document.getElementById('player').classList.add('jumping');
+        }
+        return;
+    }
+
     if (!G.roundActive) return;
     let dr = 0, dc = 0;
     const k = e.key.toLowerCase();
@@ -873,7 +1026,16 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     G.pr += dr; G.pc += dc;
     movePlayer();
-    checkTrace();
+
+    // Walk = auto stamp (unless jumping)
+    if (!spaceHeld) stampTile();
+});
+
+document.addEventListener('keyup', e => {
+    if (e.key === ' ') {
+        spaceHeld = false;
+        document.getElementById('player').classList.remove('jumping');
+    }
 });
 
 window.addEventListener('resize', () => { if (G.active) movePlayer(); });

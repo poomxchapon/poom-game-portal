@@ -2,7 +2,6 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <!-- APP_VERSION: 2.3.1 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fortal Interactive - Select Game</title>
     <style>
@@ -524,6 +523,8 @@
 <img class="particle float3" src="assets/particle2.png" style="top:5%;right:35%;width:16px;animation-delay:6s;">
 <img class="particle drift" src="assets/particle3.png" style="bottom:60%;left:50%;width:12px;animation-delay:9s;">
 
+<div id="app-version" style="position:fixed;bottom:6px;right:10px;font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;z-index:9999;pointer-events:none;"></div>
+
 <div class="app">
     <!-- Top Bar -->
     <div class="topbar">
@@ -590,6 +591,8 @@
 </div>
 
 <script>
+const APP_VERSION = '2.1.0';
+
 const GAMES = [
     {
         name: 'COLOR HUNTER',
@@ -995,6 +998,7 @@ showcase.addEventListener('touchend', e => {
 }, {passive: true});
 
 // Init
+document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 render();
 </script>
 </body>
