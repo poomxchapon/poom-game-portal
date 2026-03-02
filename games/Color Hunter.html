@@ -278,6 +278,13 @@
         <!-- Floating particles container -->
         <div id="particles-container" class="absolute inset-0 pointer-events-none z-[2] overflow-hidden"></div>
 
+        <!-- Audio toggle button (fixed top-right) -->
+        <button id="audio-toggle" onclick="audioSystem.toggle()"
+                class="fixed top-4 right-4 z-50 bg-white/10 hover:bg-white/20 backdrop-blur-sm p-3 rounded-xl transition-all hover:scale-110"
+                style="opacity: 0.8;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+
         <!-- Main game content -->
         <main id="hunter-container" class="game-content"></main>
     </div>
@@ -370,16 +377,34 @@
             bgmStart: null,
             bgmGameplay: null,
             audioCtx: null,
+            muted: false,
+            _bgmStartVol: 0.5,
+            _bgmGameplayVol: 0.6,
 
             init() {
-                // BGM tracks
                 this.bgmStart = new Audio(`${ASSET}/Music/Start Screen BGM.mp3`);
                 this.bgmStart.loop = true;
-                this.bgmStart.volume = 0.5;
+                this.bgmStart.volume = this._bgmStartVol;
 
                 this.bgmGameplay = new Audio(`${ASSET}/Music/Game Play BGM.mp3`);
                 this.bgmGameplay.loop = true;
-                this.bgmGameplay.volume = 0.6;
+                this.bgmGameplay.volume = this._bgmGameplayVol;
+            },
+
+            toggle() {
+                this.muted = !this.muted;
+                this.bgmStart.muted = this.muted;
+                this.bgmGameplay.muted = this.muted;
+                this.updateToggleUI();
+            },
+
+            updateToggleUI() {
+                const btn = document.getElementById('audio-toggle');
+                if (!btn) return;
+                btn.innerHTML = this.muted
+                    ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+                    : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>';
+                btn.style.opacity = this.muted ? '0.4' : '0.8';
             },
 
             getCtx() {
@@ -390,12 +415,14 @@
 
             playStartBGM() {
                 this.stopAll();
+                this.bgmStart.muted = this.muted;
                 this.bgmStart.currentTime = 0;
                 this.bgmStart.play().catch(() => {});
             },
 
             playGameplayBGM() {
                 this.stopAll();
+                this.bgmGameplay.muted = this.muted;
                 this.bgmGameplay.currentTime = 0;
                 this.bgmGameplay.play().catch(() => {});
             },
@@ -425,6 +452,7 @@
 
             // --- SFX: Countdown beep (synthesized) ---
             playCountdownBeep(step) {
+                if (this.muted) return;
                 const ctx = this.getCtx();
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
@@ -432,7 +460,6 @@
                 gain.connect(ctx.destination);
 
                 if (step > 0) {
-                    // 3, 2, 1 — short beep
                     osc.type = 'sine';
                     osc.frequency.value = 520;
                     gain.gain.setValueAtTime(0.4, ctx.currentTime);
@@ -440,7 +467,6 @@
                     osc.start(ctx.currentTime);
                     osc.stop(ctx.currentTime + 0.25);
                 } else {
-                    // GO — higher, longer beep
                     osc.type = 'sine';
                     osc.frequency.value = 880;
                     gain.gain.setValueAtTime(0.5, ctx.currentTime);
@@ -452,9 +478,9 @@
 
             // --- SFX: Game Over buzzer ---
             playGameOverSFX() {
+                if (this.muted) return;
                 const ctx = this.getCtx();
 
-                // Descending buzzer tone
                 const osc1 = ctx.createOscillator();
                 const osc2 = ctx.createOscillator();
                 const gain = ctx.createGain();
